@@ -8,6 +8,7 @@
   <license>Apache-2.0</license>
 
   <depend>chess_common_cpp</depend>
+  <depend>rclcpp</depend>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

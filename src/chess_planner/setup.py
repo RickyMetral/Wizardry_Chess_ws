@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'chess_planner_node = chess_planner.chess_planner:main'
         ],
     },
 )
