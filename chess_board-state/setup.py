@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'perception'
+package_name = 'chess_board-state'
 
 setup(
     name=package_name,

@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'board-state'
+package_name = 'chess_player_input'
 
 setup(
     name=package_name,
