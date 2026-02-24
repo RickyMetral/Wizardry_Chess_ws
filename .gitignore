@@ -1,1 +1,18 @@
+#Python virutal environment
 .venv
+
+#Secrets
+.env
+
+#Log dir
+log/
+
+#Install dir
+install/
+
+#build dir
+build/
+
+#python cache
+__pycache__/
+*.pyc
