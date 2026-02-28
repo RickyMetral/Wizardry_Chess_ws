@@ -4,10 +4,13 @@ Everything will be wrapped under the lichess class and be called as methods of s
  """
 import requests
 import json
-from config import LICHESS_TOKEN
+from chess_common_py.config import LICHESS_TOKEN
 
 class LichessApi:
     bot_username = "maia9"
+    move_count = 0
+    _game_id = None
+    _player_color = None
 
     def __init__(self, bot_username = ""):
         self.header = {"Authorization": f"Bearer {LICHESS_TOKEN}"}
@@ -15,7 +18,7 @@ class LichessApi:
         if(bot_username != ""):
             self.bot_username = bot_username
 
-    """clock timer are in seconds""" 
+    """clock timer are in seconds. Timers will be invalid if not in specifc intervals. Look in lichess what those intervals are.""" 
     def start_game(self, player_color="random", clock_limit = 600, clock_increment = 5) -> bool:
         req_body = {
             "rated": False,
@@ -38,20 +41,20 @@ class LichessApi:
             print(data["error"])
             return False
 
-        self.game_id = data["id"]
-        self.player_color = data["finalColor"]
+        LichessApi._game_id = data["id"]
+        LichessApi._player_color = data["finalColor"]
 
         if data.get("status") == "declined":
             print("Game was declined")
-            print(f"View why here: https://lichess.org/{self.game_id}")
+            print(f"View why here: https://lichess.org/{LichessApi._game_id}")
             return False
 
-        print(f"Game started! https://lichess.org/{self.game_id}")
+        print(f"Game started! https://lichess.org/{LichessApi._game_id}")
         return True
 
     def abort_game(self):
         r = requests.post(
-            f"https://lichess.org/api/board/game/{self.game_id}/abort",
+            f"https://lichess.org/api/board/game/{LichessApi._game_id}/abort",
             headers=self.header
         )
 
@@ -59,7 +62,7 @@ class LichessApi:
 
     def resign_game(self):
         r = requests.post(
-            f"https://lichess.org/api/board/game/{self.game_id}/resign",
+            f"https://lichess.org/api/board/game/{LichessApi._game_id}/resign",
             headers=self.header
         )
 
@@ -68,7 +71,7 @@ class LichessApi:
     def make_move(self, move: str):
         headers = {"Authorization": f"Bearer {LICHESS_TOKEN}"}
         r = requests.post(
-            f"https://lichess.org/api/board/game/{self.game_id}/move/{move}",
+            f"https://lichess.org/api/board/game/{LichessApi._game_id}/move/{move}",
             headers=headers
         )
 
@@ -84,17 +87,26 @@ class LichessApi:
     #Blocks program until at least one response is received
     def wait_for_board_event(self):
         response = requests.get(
-            f"https://lichess.org/api/board/game/stream/{self.game_id}",
+            f"https://lichess.org/api/board/game/stream/{LichessApi._game_id}",
             headers=self.header,
             stream=True
         )
 
+        return response
+
+    #Will return a list of all moves made in a game from a json response. 
+    #If no new moves it will return an empty list
+    def parse_moves_from_events(self, response):
         #Each line is a new event that has been appended to the NDJSON
         for line in response.iter_lines():
             #Some lines may be empty for keep alive
             if line:
                 event = json.loads(line)
                 
+                #If there is an event error
+                if event.get("error"):
+                    continue
+
                 # First event, contains full game info and current moves
                 if event["type"] == "gameFull":
                     moves = event["state"]["moves"]
@@ -104,14 +116,19 @@ class LichessApi:
 
                 elif event["type"] == "gameFinish":
                     print("Game is over!")
-                    return "finished"
+                    return None
 
                 else:
                     continue
 
+                moves_list = moves.split()
+                if len(moves_list) > LichessApi.move_count:
+                    return moves_list
+                else:
+                    continue
+        return []
 
-                return moves.split()
-
+    #Gets the most recent white move in a list of moves
     def get_white_move(self, moves: list[str]) -> str:
         if len(moves) == 1:
             return moves[0]
@@ -122,6 +139,7 @@ class LichessApi:
         else:
             return moves[-2]
 
+    #Gets the most recent black move in a list of moves
     def get_black_move(self, moves: list[str]) -> str:
         if len(moves) <= 1:
             return "none"
@@ -131,13 +149,19 @@ class LichessApi:
 
         else:
             return moves[-2]
+    
+    def set_game_id(self, game_id: str):
+        LichessApi._game_id = game_id
+
+    def update_move_count(self, move_count: int):
+        LichessApi.move_count = move_count
 
 
 if __name__ == "__main__":
     lichess = LichessApi()
     if lichess.start_game(clock_limit = 600, clock_increment = 5):
 
-        if lichess.player_color == "white":
+        if lichess._player_color == "white":
             lichess.make_move("e2e4")
 
             black_move = "none"

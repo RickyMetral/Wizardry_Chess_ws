@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'chess_player_input_node = chess_player_input.player_input:main'
         ],
     },
 )

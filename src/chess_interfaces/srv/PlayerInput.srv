@@ -1,3 +1,5 @@
 string player_color
+uint16 move_count
+string game_id
 ---
 string move
