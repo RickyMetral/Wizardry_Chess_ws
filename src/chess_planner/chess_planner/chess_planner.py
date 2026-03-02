@@ -11,7 +11,7 @@ class ChessPlanner(Node):
     black_turn = False
     white_turn = True
     player_color = None
-    move_count = 1
+    move_count = 0
 
     def __init__(self):
         super().__init__("chess_planner_node")
@@ -49,6 +49,35 @@ class ChessPlanner(Node):
 
     def set_player_color(self, player_color):
         ChessPlanner.player_color = player_color
+    
+    def handle_white_turn(self, lichess: LichessApi):
+        player_move = self.request_player_input("w", lichess._game_id, self.move_count)
+        if player_move.move == "end" or player_move == "error":
+            return False
+        # TODO Rate move
+        # TODO Update Loyalty
+        # TODO If loyalty too low, make a different move
+        self.get_logger().debug(f"Received move from White: {player_move.move}")
+        lichess.make_move(player_move.move)
+        self.move_count += 1
+        # TODO Publish move to nav
+        self.switch_turns()
+        return True
+
+    def handle_black_turn(self, lichess: LichessApi):
+        player_move = self.request_player_input("b", lichess._game_id, self.move_count)
+        if player_move.move == "end" or player_move == "error":
+            return False
+        # TODO Rate move
+        # TODO Update Loyalty
+        # TODO If loyalty too low, make a different move
+        self.get_logger().debug(f"Received move from Black: {player_move.move}")
+        lichess.make_move(player_move.move)
+        self.move_count += 1
+        
+        # TODO Publish move to nav
+        self.switch_turns()
+        return True
 
 def main():
     rclpy.init()
@@ -60,34 +89,22 @@ def main():
 
         while True:
             if planner.white_turn:
-                player_move = planner.request_player_input("w", lichess._game_id, planner.move_count)
-                if(player_move == "finished"):
-                    print("Game is over!")
+                planner.get_logger().debug("Requesting white move")
+                if not planner.handle_white_turn(lichess):
+                    print("Game is over")
                     break
-                #TODO Rate move
-                #TODO Update Loyalty
-                #TODO If loyalty too low, make a different move
-                lichess.make_move(player_move)
-                planner.move_count += 1
-                #TODO Publish move to nav
-                planner.switch_turns()
 
             elif planner.black_turn:
-                player_move = planner.request_player_input("b", lichess._game_id, planner.move_count)
-                if(player_move == "finished"):
+                planner.get_logger().debug("Requesting black move")
+                if not planner.handle_black_turn(lichess):
                     print("Game is over!")
                     break
-                #TODO Rate move
-                #TODO Update Loyalty 
-                #TODO If loyalty too low, make a different move
-                lichess.make_move(player_move)
-                planner.move_count += 1
-                #TODO Publish move to nav
-                planner.switch_turns()
+
 
         planner.destroy_node()
         rclpy.shutdown()
-    except SystemExit:
+    except (SystemExit, KeyboardInterrupt):
+        lichess.resign_game()
         rclpy.shutdown()
 
 
