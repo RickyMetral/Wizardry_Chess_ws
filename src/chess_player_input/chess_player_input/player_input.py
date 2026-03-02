@@ -13,9 +13,9 @@ class PlayerInputSrvNode(Node):
     moves = []
 
     def __init__(self):
-        super().__init__('chess_input_service_node')
-        self.srv = self.create_service(PlayerInput, 'player_input', self.get_next_move_callback)
-        self.get_logger().info('Chess service node ready!')
+        super().__init__("chess_input_service_node")
+        self.srv = self.create_service(PlayerInput, "player_input", self.get_next_move_callback)
+        self.get_logger().info("Chess service node ready!")
         self.lichess = LichessApi()
         self._event_thread_started = False
         self.lock = threading.Lock()
@@ -62,16 +62,19 @@ class PlayerInputSrvNode(Node):
                 
                 #If there is an event error
                 if event.get("error"):
-                    self.get_logger().warn("Something went wrong parsing events")
-                    break
-
-                elif event["type"] == "gameFinish":
-                    print("Game is over!")
-                    self.moves.append("end")
+                    self.get_logger().warn(f"Something went wrong parsing events: {event.get('error')}")
+                    self.append_to_move_buffer("error")
+                    self._event_thread_started = False
                     break
 
                 # First event, contains full game info and current moves
                 elif event["type"] == "gameFull":
+                    status = event.get("status")
+                    if status and status != "started":
+                        self.append_to_move_buffer("end") 
+                        self._event_thread_started = False
+                        break
+
                     lichess_moves = event["state"]["moves"]
                     #If moves list is empty
                     if not lichess_moves:
@@ -80,6 +83,10 @@ class PlayerInputSrvNode(Node):
                     self.append_to_move_buffer(last_move)
 
                 elif event["type"] == "gameState":
+                    status = event.get("status")
+                    if status and status != "started":
+                        self.append_to_move_buffer("end") 
+                        break
                     lichess_moves = event["moves"]
                     #If moves list is empty
                     if not lichess_moves:

@@ -91,13 +91,13 @@ def main():
             if planner.white_turn:
                 planner.get_logger().debug("Requesting white move")
                 if not planner.handle_white_turn(lichess):
-                    print("Game is over")
+                    planner.get_logger().info("Game is over")
                     break
 
             elif planner.black_turn:
                 planner.get_logger().debug("Requesting black move")
                 if not planner.handle_black_turn(lichess):
-                    print("Game is over!")
+                    planner.get_logger().info("Game is over")
                     break
 
 
