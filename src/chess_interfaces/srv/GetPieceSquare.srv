@@ -1,0 +1,5 @@
+uint8 chess_square #Use pythons chess library to get the enum. (Ex: chess.A3)
+---
+bool is_occupied
+uint8 piece_type  #Returns 255 if not occupied. Also uses chess library enum
+

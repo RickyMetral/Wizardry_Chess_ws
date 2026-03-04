@@ -15,6 +15,8 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/PlayerInput.srv"
+  "srv/GetPieceSquare.srv"
+  "srv/CheckMoveValid.srv"
   # DEPENDENCIES geometry_msgs # Add packages that above messages depend on
 )
 

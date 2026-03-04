@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'chess_board-state'
+package_name = 'chess_board_state'
 
 setup(
     name=package_name,
@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'chess_board_state_node = chess_board_state.board_state:main'
         ],
     },
 )

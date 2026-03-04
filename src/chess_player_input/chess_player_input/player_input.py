@@ -1,6 +1,5 @@
-"""Orchestrates how to return what move is side makes using Lichess API or stt model. Waits for planner to send a request and will wait until player responds with a move or the game ends"""
+"""Orchestrates how to return what move each side makes using Lichess API or stt model. Waits for planner to send a request and will wait until player responds with a move or the game ends"""
 import rclpy
-import time
 import threading
 from rclpy.node import Node
 from chess_interfaces.srv import PlayerInput
@@ -9,8 +8,6 @@ from chess_common_py.lichess_api import LichessApi
 
 
 class PlayerInputSrvNode(Node):
-    move_count = 0
-    moves = []
 
     def __init__(self):
         super().__init__("chess_input_service_node")
@@ -18,24 +15,29 @@ class PlayerInputSrvNode(Node):
         self.get_logger().info("Chess service node ready!")
         self.lichess = LichessApi()
         self._event_thread_started = False
+        self.move_count = 0
+        self.moves = []
         self.lock = threading.Lock()
         self.condition = threading.Condition(self.lock)
 
     def start_event_parsing_thread(self):
         lichess_response = self.lichess.wait_for_board_event() #Will block input until a new move is received
         self.parse_moves_from_events(lichess_response)
+        self.get_logger().info("Finished parsing thread")
+
 
     def get_next_move_callback(self, request, response):
-        self.get_logger().info(f'Received request with color: {request.player_color}')
+        self.get_logger().info(f'Received request for color: {request.player_color}')
         self.lichess.set_game_id(request.game_id)
         self.update_move_count(request.move_count)
         self.get_logger().debug(f"Current list of moves:\n {self.moves}")
 
         if not self._event_thread_started:
+            self.moves.clear()#Empty the list if there is a new game to be started
+            print(self.moves)
             self._event_thread_started = True
             thread = threading.Thread(target=self.start_event_parsing_thread, daemon=True)
             thread.start()
-
 
         if request.player_color == "w":
             move = self.get_white_move()#Gets move from moves buffer

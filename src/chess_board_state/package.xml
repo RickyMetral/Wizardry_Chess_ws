@@ -1,14 +1,15 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>chess_board-state</name>
+  <name>chess_board_state</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="ricardometral2005@gmail.com">ricky</maintainer>
   <license>Apache-2.0</license>
 
-  <depend>chess_common_py<depend>
   <depend>rclpy</depend>
+  <depend>chess_common_py</depend>
+  <depend>chess_interfaces</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
