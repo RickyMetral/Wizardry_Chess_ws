@@ -10,8 +10,10 @@ class LichessApi:
     _game_id = None
     _player_color = None
 
-    def __init__(self, bot_username = ""):
+    #Expects Ros logger object
+    def __init__(self, logger, bot_username = ""):
         self.header = {"Authorization": f"Bearer {LICHESS_TOKEN}"}
+        self.logger = logger
 
         if(bot_username != ""):
             LichessApi.bot_username = bot_username
@@ -35,19 +37,19 @@ class LichessApi:
         data = response.json()
 
         if data.get("error"):
-            print("Something went wrong!")
-            print(data["error"])
+            self.logger.warn("Something went wrong!")
+            self.logger.error(data["error"])
             return False
 
         LichessApi._game_id = data["id"]
         LichessApi._player_color = data["finalColor"]
 
         if data.get("status") == "declined":
-            print("Game was declined")
-            print(f"View why here: https://lichess.org/{LichessApi._game_id}")
+            self.logger.info("Game was declined")
+            self.logger.info(f"View why here: https://lichess.org/{LichessApi._game_id}")
             return False
 
-        print(f"Game started! https://lichess.org/{LichessApi._game_id}")
+        self.logger.info(f"Game started! https://lichess.org/{LichessApi._game_id}")
         return True
 
     def abort_game(self):
@@ -76,10 +78,10 @@ class LichessApi:
         return r.json()
 
     def show_available_bots(self):
-        print("maia1")
-        print("maia5")
-        print("maia9")
-        print("Visit: lichess.org/player/bots for community bots!")
+        self.logger.info("maia1")
+        self.logger.info("maia5")
+        self.logger.info("maia9")
+        self.logger.info("Visit: lichess.org/player/bots for community bots!")
     
     #Returns json object of newest board event. Will return 'finished' if game is over
     #Blocks program until at least one response is received
@@ -109,7 +111,7 @@ if __name__ == "__main__":
                 moves = lichess.wait_for_board_event()
                 black_move = lichess.get_black_move(moves)
             
-            print(f"Bot made move: {black_move}")
+            lichess.logger.info(f"Bot made move: {black_move}")
 
         else:
             black_move = "none"
@@ -119,7 +121,7 @@ if __name__ == "__main__":
 
             lichess.make_move("e4")
             
-            print(f"Bot made move: {black_move}")
+            lichess.logger.info(f"Bot made move: {black_move}")
 
 
         lichess.resign_game()

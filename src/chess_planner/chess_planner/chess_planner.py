@@ -11,6 +11,7 @@ from chess_interfaces.srv import PlayerInput
 from chess_interfaces.srv import CheckMoveValid, GetPieceSquare
 from chess_common_py.lichess_api import LichessApi
 
+#TODO Add the rest of the client calls for check move and get piece
 
 class ChessPlanner(Node):
     black_loyalty = 100
@@ -27,7 +28,6 @@ class ChessPlanner(Node):
         self.check_move_valid_cli = self.create_client(CheckMoveValid, "check_valid_move")
         self.get_piece_square_cli = self.create_client(GetPieceSquare, "get_piece_square")
         self.reset_board_trigger = self.create_client(Trigger, "reset_board")
-        
 
         if not self.player_input_cli.wait_for_service(timeout_sec=2.0):
             self.get_logger().error("Could not find Player input service. Shutting down...")
@@ -111,8 +111,10 @@ def main():
     rclpy.init()
     try:
         planner = ChessPlanner()
-        lichess = LichessApi()
-        lichess.start_game()
+        lichess = LichessApi(planner.get_logger())
+        if not lichess.start_game():
+            raise SystemExit
+            
         planner.set_player_color(lichess._player_color)
 
         while True:
@@ -140,8 +142,6 @@ def main():
         if planner:
             planner.destroy_node()
         rclpy.shutdown()
-
-
 
 if __name__ == '__main__':
     main()

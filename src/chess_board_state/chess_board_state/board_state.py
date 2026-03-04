@@ -67,7 +67,7 @@ class BoardState(Node):
 def main(args=None):
     rclpy.init()
     node  = BoardState()
-    executor = MultiThreadedExecutor(num_threads=2)
+    executor = MultiThreadedExecutor(num_threads=3)
     executor.add_node(node)
     try: 
         executor.spin()

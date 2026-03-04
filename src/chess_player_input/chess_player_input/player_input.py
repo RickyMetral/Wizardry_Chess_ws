@@ -12,8 +12,8 @@ class PlayerInputSrvNode(Node):
     def __init__(self):
         super().__init__("chess_input_service_node")
         self.srv = self.create_service(PlayerInput, "player_input", self.get_next_move_callback)
-        self.get_logger().info("Chess service node ready!")
-        self.lichess = LichessApi()
+        self.get_logger().info("Chess player input service node ready!")
+        self.lichess = LichessApi(self.get_logger())
         self._event_thread_started = False
         self.move_count = 0
         self.moves = []
@@ -34,7 +34,6 @@ class PlayerInputSrvNode(Node):
 
         if not self._event_thread_started:
             self.moves.clear()#Empty the list if there is a new game to be started
-            print(self.moves)
             self._event_thread_started = True
             thread = threading.Thread(target=self.start_event_parsing_thread, daemon=True)
             thread.start()
