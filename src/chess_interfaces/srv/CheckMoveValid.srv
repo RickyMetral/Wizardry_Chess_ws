@@ -1,5 +1,4 @@
 string player_move #In UCI format
-string game_id
 ---
 bool is_valid_move
 bool is_check

@@ -7,7 +7,7 @@ from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
-from chess_interfaces.srv import CheckMoveValid, GetPieceSquare
+from chess_interfaces.srv import CheckMoveValid, GetSquarePiece
 import chess 
 
 
@@ -15,8 +15,8 @@ class BoardState(Node):
     def __init__(self):
         super().__init__("board_state_node")
         self.move_sub = self.create_subscription(String, "player_move", self.update_board_state,10)
-        self.check_move_valid_srv = self.create_service(CheckMoveValid, "check_valid_move", self.check_move_valid_callback)
-        self.get_piece_square_srv = self.create_service(GetPieceSquare, "get_piece_square", self.get_piece_square_callback)
+        self.check_move_valid_srv = self.create_service(CheckMoveValid, "check_move_valid", self.check_move_valid_callback)
+        self.get_piece_square_srv = self.create_service(GetSquarePiece, "get_square_piece", self.get_square_piece_callback)
         self.reset_board_srv = self.create_service(Trigger, "reset_board", self.reset_board)
         self.get_logger().info("Started Board State Service")
 
@@ -35,18 +35,21 @@ class BoardState(Node):
         move = chess.Move.from_uci(request.player_move)
         response.is_valid_move = self.board.is_legal(move)
 
-        if response.is_valid_move:
-            self.board.push(move)
+        if not response.is_valid_move:
+            response.is_check = False
+            response.is_mate = False 
+            return response
+
         
+        self.board.push(move)
         response.is_check = self.board.is_check()
         response.is_mate = self.board.is_checkmate()
-
         self.board.pop()
 
         return response
     
-    def get_piece_square_callback(self, request, response):
-        self.get_logger().info("Received Request to get piece square callback")
+    def get_square_piece_callback(self, request, response):
+        self.get_logger().info("Received Request to get square piece callback")
         piece = self.board.piece_at(request.chess_square)
 
         if piece:
@@ -63,6 +66,7 @@ class BoardState(Node):
         response.success = True
         response.message = "Board Reset"
         self.get_logger().info("Reset Board")
+        return response
 
 def main(args=None):
     rclpy.init()
