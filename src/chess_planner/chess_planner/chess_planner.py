@@ -12,8 +12,6 @@ from chess_interfaces.srv import PlayerInput
 from chess_interfaces.srv import CheckMoveValid, GetSquarePiece 
 from chess_common_py.lichess_api import LichessApi
 
-#TODO Add the rest of the client calls for check move and get piece
-
 class ChessPlanner(Node):
     black_loyalty = 100
     white_loyalty = 100
@@ -26,7 +24,6 @@ class ChessPlanner(Node):
         super().__init__("chess_planner_node")
         self.move_pub = self.create_publisher(String, "player_move", 10)#TODO Create a message that also includes player color in the message
         self.player_input_cli = self.create_client(PlayerInput, "player_input")
-        self.check_move_valid_cli = self.create_client(CheckMoveValid, "check_move_valid")
         self.get_piece_square_cli = self.create_client(GetSquarePiece, "get_square_piece")
         self.reset_board_trigger = self.create_client(Trigger, "reset_board")
 
@@ -35,9 +32,6 @@ class ChessPlanner(Node):
             raise SystemExit
         if not self.reset_board_trigger.wait_for_service(timeout_sec=2.0):
             self.get_logger().error("Could not find reset board trigger. Shutting down...")
-            raise SystemExit
-        if not self.check_move_valid_cli.wait_for_service(timeout_sec=2.0):
-            self.get_logger().error("Could not find check move service. Shutting down...")
             raise SystemExit
         if not self.get_piece_square_cli.wait_for_service(timeout_sec=2.0):
             self.get_logger().error("Could not find get piece square service. Shutting down...")
@@ -50,7 +44,7 @@ class ChessPlanner(Node):
         req.game_id = game_id
         req.move_count = move_count
         future = self.player_input_cli.call_async(req)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=3.0)
+        rclpy.spin_until_future_complete(self, future)
         return future.result()
 
     def reset_board_req(self):
@@ -87,13 +81,6 @@ class ChessPlanner(Node):
         rclpy.spin_until_future_complete(self, future, timeout_sec=3.0)
         return future.result()
 
-    def check_move_valid_req(self, player_move):
-        req = CheckMoveValid.Request()
-        req.player_move = player_move
-        future = self.check_move_valid_cli.call_async(req)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=3.0)
-        return future.result()
-
     def get_square_piece(self, chess_square):
         future = self.get_square_piece_req(chess_square)
         if future.is_occupied:
@@ -103,13 +90,13 @@ class ChessPlanner(Node):
 
     def handle_white_turn(self, lichess: LichessApi):
         player_move = self.request_player_input("w", lichess._game_id, self.move_count)
-        if player_move.move == "end" or player_move == "error":
+        if not player_move or player_move == "end" or player_move == "error":
             return False
         # TODO Rate move
         # TODO Update Loyalty
         # TODO If loyalty too low, make a different move
         self.get_logger().debug(f"Received move from White: {player_move.move}")
-        lichess.make_move(player_move.move)
+        # lichess.make_move(player_move.move)
         self.move_count += 1
         msg = String()
         msg.data = player_move.move
@@ -125,7 +112,7 @@ class ChessPlanner(Node):
         # TODO Update Loyalty
         # TODO If loyalty too low, make a different move
         self.get_logger().debug(f"Received move from Black: {player_move.move}")
-        lichess.make_move(player_move.move)
+        # lichess.make_move(player_move.move)
         self.move_count += 1
         msg = String()
         msg.data = player_move.move

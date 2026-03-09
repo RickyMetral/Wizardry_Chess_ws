@@ -2,7 +2,7 @@
 import rclpy
 import threading
 from rclpy.node import Node
-from chess_interfaces.srv import PlayerInput
+from chess_interfaces.srv import PlayerInput, CheckMoveValid
 import json
 from chess_common_py.lichess_api import LichessApi
 
@@ -12,6 +12,7 @@ class PlayerInputSrvNode(Node):
     def __init__(self):
         super().__init__("chess_input_service_node")
         self.srv = self.create_service(PlayerInput, "player_input", self.get_next_move_callback)
+        self.check_move_valid_cli = self.create_client(CheckMoveValid, "check_move_valid")
         self.get_logger().info("Chess player input service node ready!")
         self.lichess = LichessApi(self.get_logger())
         self._event_thread_started = False
@@ -20,11 +21,21 @@ class PlayerInputSrvNode(Node):
         self.lock = threading.Lock()
         self.condition = threading.Condition(self.lock)
 
+        if not self.check_move_valid_cli.wait_for_service(timeout_sec=2.0):
+            self.get_logger().error("Could not find check move service. Shutting down...")
+            raise SystemExit
+
     def start_event_parsing_thread(self):
         lichess_response = self.lichess.wait_for_board_event() #Will block input until a new move is received
         self.parse_moves_from_events(lichess_response)
         self.get_logger().info("Finished parsing thread")
 
+    def check_move_valid_req(self, player_move):
+        req = CheckMoveValid.Request()
+        req.player_move = player_move
+        future = self.check_move_valid_cli.call_async(req)
+        rclpy.spin_until_future_complete(self, future, timeout_sec=10.0)
+        return future.result()
 
     def get_next_move_callback(self, request, response):
         self.get_logger().info(f'Received request for color: {request.player_color}')
@@ -72,7 +83,7 @@ class PlayerInputSrvNode(Node):
                 elif event["type"] == "gameFull":
                     status = event.get("status")
                     if status and status != "started":
-                        self.append_to_move_buffer("end") 
+                        self.append_to_move_buffer("end", False) 
                         self._event_thread_started = False
                         break
 
@@ -81,19 +92,19 @@ class PlayerInputSrvNode(Node):
                     if not lichess_moves:
                         continue
                     last_move = lichess_moves.rsplit(" ", 1)[-1]
-                    self.append_to_move_buffer(last_move)
+                    self.append_to_move_buffer(last_move, False)
 
                 elif event["type"] == "gameState":
                     status = event.get("status")
                     if status and status != "started":
-                        self.append_to_move_buffer("end") 
+                        self.append_to_move_buffer("end", False) 
                         break
                     lichess_moves = event["moves"]
                     #If moves list is empty
                     if not lichess_moves:
                         continue
                     last_move = lichess_moves.rsplit(" ", 1)[-1]
-                    self.append_to_move_buffer(last_move)
+                    self.append_to_move_buffer(last_move, False)
 
                 else:
                     continue
@@ -127,11 +138,25 @@ class PlayerInputSrvNode(Node):
     def update_move_count(self, move_count: int):
         self.move_count = move_count
     
-    def append_to_move_buffer(self, move: str):
-        with self.condition:
-            self.moves.append(move)
-            self.condition.notify_all()
+    #If validate is false then we don't need to check if the move is valid
+    def append_to_move_buffer(self, move: str, validate = True):
+        if not validate:
+            with self.condition:
+                    self.moves.append(move)
+                    self.condition.notify_all()
+                    self.get_logger().info(f"Valid move received: {move}")
+                    return True
 
+        result = self.check_move_valid_req(move)
+        if (result and result.is_valid_move) or move == "end" or move == "error":
+                with self.condition:
+                        self.moves.append(move)
+                        self.condition.notify_all()
+                        self.get_logger().info(f"Valid move received: {move}")
+                        return True
+        else:
+            self.get_logger().warn(f"Invalid move received: {move}")
+            return False
 
 def main(args=None):
     rclpy.init(args=args)

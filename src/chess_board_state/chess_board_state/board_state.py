@@ -14,7 +14,7 @@ import chess
 class BoardState(Node):
     def __init__(self):
         super().__init__("board_state_node")
-        self.move_sub = self.create_subscription(String, "player_move", self.update_board_state,10)
+        self.move_sub = self.create_subscription(String, "player_move", self.update_board_state, 10)
         self.check_move_valid_srv = self.create_service(CheckMoveValid, "check_move_valid", self.check_move_valid_callback)
         self.get_piece_square_srv = self.create_service(GetSquarePiece, "get_square_piece", self.get_square_piece_callback)
         self.reset_board_srv = self.create_service(Trigger, "reset_board", self.reset_board)
