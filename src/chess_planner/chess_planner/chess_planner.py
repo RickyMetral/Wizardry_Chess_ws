@@ -9,7 +9,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from chess_interfaces.srv import PlayerInput
-from chess_interfaces.srv import CheckMoveValid, GetSquarePiece 
+from chess_interfaces.srv import GetSquarePiece 
 from chess_common_py.lichess_api import LichessApi
 
 class ChessPlanner(Node):

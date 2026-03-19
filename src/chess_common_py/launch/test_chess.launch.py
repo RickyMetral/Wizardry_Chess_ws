@@ -7,7 +7,8 @@ def generate_launch_description():
         Node(
             package='chess_board_state',
             executable='chess_board_state_node',
-            output='screen'
+            output='screen',
+            arguments=['--ros-args', '--log-level', 'info'] 
         ),
         TimerAction(
             period=3.0,
@@ -15,12 +16,14 @@ def generate_launch_description():
                 Node(
                     package='chess_player_input',
                     executable='chess_player_input_node',
-                    output='screen'
+                    output='screen',
+                    arguments=['--ros-args', '--log-level', 'info'] 
                 ),
                 Node(
                     package='chess_planner',
                     executable='chess_planner_node',
                     output='screen',
+                    arguments=['--ros-args', '--log-level', 'info'] 
                 ),
             ]
         ),
