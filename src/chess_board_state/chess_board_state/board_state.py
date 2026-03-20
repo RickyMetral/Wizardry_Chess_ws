@@ -10,6 +10,7 @@ from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from chess_interfaces.srv import CheckMoveValid, GetSquarePiece
 import chess 
+import random
 import chess.engine
 
 
@@ -27,6 +28,9 @@ class BoardState(Node):
             self.get_logger().info("Started Board State Service")
 
     #TODO Create callback that returns the location of a specified piece
+
+    def gen_random_move(self)->str:
+        return random.choice(list(self.board.legal_moves)).uci()
 
     #Gives centipawn score from whites perspective
     #To swich to perspectives just negate the returned score(Ex: white: 50, black: -50)
@@ -49,7 +53,6 @@ class BoardState(Node):
             response.is_mate = False 
             return response
 
-        
         self.board.push(move)
         response.is_check = self.board.is_check()
         response.is_mate = self.board.is_checkmate()

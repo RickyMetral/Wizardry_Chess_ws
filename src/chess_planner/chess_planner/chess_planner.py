@@ -52,6 +52,7 @@ class ChessPlanner(Node):
         rclpy.spin_until_future_complete(self, future)
         return future.result()
 
+    #Request to reset the board state 
     def reset_board_req(self):
         req = Trigger.Request()
         future = self.reset_board_trigger.call_async(req)
@@ -111,11 +112,12 @@ class ChessPlanner(Node):
         player_move = self.request_player_input("w", lichess._game_id, self.move_count)
         if not player_move or player_move == "end" or player_move == "error":
             return False
-        # TODO Rate move
-        # TODO Update Loyalty
         self.update_white_loyalty(0.5)
-        # TODO If loyalty too low, make a different move
         self.get_logger().debug(f"Received move from White: {player_move.move}")
+        if self.white_loyalty < 20:
+            player_move.move = self.board.gen_random_move()
+            self.get_logger().debug(f"Loyalty too Low! Overwrote white move: {player_move.move}")
+
         # lichess.make_move(player_move.move)
         self.move_count += 1
         msg = String()
@@ -128,11 +130,11 @@ class ChessPlanner(Node):
         player_move = self.request_player_input("b", lichess._game_id, self.move_count)
         if player_move.move == "end" or player_move == "error":
             return False
-        # TODO Rate move
-        # TODO Update Loyalty
         self.update_black_loyalty(.5)
-        # TODO If loyalty too low, make a different move
         self.get_logger().debug(f"Received move from Black: {player_move.move}")
+        if self.black_loyalty < 20:
+            player_move.move = self.board.gen_random_move()
+            self.get_logger().debug(f"Loyalty too Low! Overwrote black move: {player_move.move}")
         # lichess.make_move(player_move.move)
         self.move_count += 1
         msg = String()
