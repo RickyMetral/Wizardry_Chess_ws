@@ -5,24 +5,33 @@ Can be used to determine validiity of moves, potential moves, if the board is in
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
+from chess_common_py.config import STOCKFISH_PATH 
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from chess_interfaces.srv import CheckMoveValid, GetSquarePiece
 import chess 
+import chess.engine
 
 
 class BoardState(Node):
-    def __init__(self):
-        super().__init__("board_state_node")
-        self.move_sub = self.create_subscription(String, "player_move", self.update_board_state, 10)
-        self.check_move_valid_srv = self.create_service(CheckMoveValid, "check_move_valid", self.check_move_valid_callback)
-        self.get_piece_square_srv = self.create_service(GetSquarePiece, "get_square_piece", self.get_square_piece_callback)
-        self.reset_board_srv = self.create_service(Trigger, "reset_board", self.reset_board)
-        self.get_logger().info("Started Board State Service")
+    board = chess.Board()
+    engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
 
-        self.board = chess.Board()
-    
+    def __init__(self, use_ros = True):
+        if use_ros:
+            super().__init__("board_state_node")
+            self.move_sub = self.create_subscription(String, "player_move", self.update_board_state, 10)
+            self.check_move_valid_srv = self.create_service(CheckMoveValid, "check_move_valid", self.check_move_valid_callback)
+            self.get_piece_square_srv = self.create_service(GetSquarePiece, "get_square_piece", self.get_square_piece_callback)
+            self.reset_board_srv = self.create_service(Trigger, "reset_board", self.reset_board)
+            self.get_logger().info("Started Board State Service")
+
     #TODO Create callback that returns the location of a specified piece
+
+    #Gives centipawn score from whites perspective
+    #To swich to perspectives just negate the returned score(Ex: white: 50, black: -50)
+    def analyze_board(self, mate_score = 10000):
+        return self.engine.analyse(self.board, chess.engine.Limit(time=0.1))["score"].white().score(mate_score=mate_score)
 
     def update_board_state(self, player_move):
         self.get_logger().info("Received Request to update board state callback")

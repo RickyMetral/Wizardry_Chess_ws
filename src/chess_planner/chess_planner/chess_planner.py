@@ -10,11 +10,15 @@ from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from chess_interfaces.srv import PlayerInput
 from chess_interfaces.srv import GetSquarePiece 
+from chess_board_state.board_state import BoardState
 from chess_common_py.lichess_api import LichessApi
+from chess.engine import Cp, Mate, MateGiven
 
 class ChessPlanner(Node):
     black_loyalty = 100
     white_loyalty = 100
+    white_cp_score = 0
+    black_cp_score = 0
     black_turn = False
     white_turn = True
     player_color = None
@@ -26,6 +30,7 @@ class ChessPlanner(Node):
         self.player_input_cli = self.create_client(PlayerInput, "player_input")
         self.get_piece_square_cli = self.create_client(GetSquarePiece, "get_square_piece")
         self.reset_board_trigger = self.create_client(Trigger, "reset_board")
+        self.board = BoardState(use_ros = False)
 
         if not self.player_input_cli.wait_for_service(timeout_sec=2.0):
             self.get_logger().error("Could not find Player input service. Shutting down...")
@@ -88,12 +93,27 @@ class ChessPlanner(Node):
         else:
             return 255 #255 is square is not occupied
 
+    def update_white_loyalty(self, loyalty_multiplier: int):
+        score = self.board.analyze_board()
+        score_diff = score - self.white_cp_score
+        self.white_loyalty += score_diff * loyalty_multiplier
+        self.white_loyalty = max(0, min(100, self.white_loyalty))  
+        self.white_cp_score = score  
+
+    def update_black_loyalty(self, loyalty_multiplier: int):
+        score = self.board.analyze_board()
+        score_diff = score - self.black_cp_score
+        self.black_loyalty += score_diff * loyalty_multiplier
+        self.black_loyalty = max(0, min(100, self.black_loyalty))  
+        self.black_cp_score = score  
+
     def handle_white_turn(self, lichess: LichessApi):
         player_move = self.request_player_input("w", lichess._game_id, self.move_count)
         if not player_move or player_move == "end" or player_move == "error":
             return False
         # TODO Rate move
         # TODO Update Loyalty
+        self.update_white_loyalty(0.5)
         # TODO If loyalty too low, make a different move
         self.get_logger().debug(f"Received move from White: {player_move.move}")
         # lichess.make_move(player_move.move)
@@ -110,6 +130,7 @@ class ChessPlanner(Node):
             return False
         # TODO Rate move
         # TODO Update Loyalty
+        self.update_black_loyalty(.5)
         # TODO If loyalty too low, make a different move
         self.get_logger().debug(f"Received move from Black: {player_move.move}")
         # lichess.make_move(player_move.move)
@@ -132,12 +153,14 @@ def main():
 
         while True:
             if planner.white_turn:
+                planner.get_logger().info(f"White Loyalty: {planner.white_loyalty}")
                 planner.get_logger().debug("Requesting white move")
                 if not planner.handle_white_turn(lichess):
                     planner.get_logger().info("Game is over")
                     break
 
             elif planner.black_turn:
+                planner.get_logger().info(f"Black Loyalty: {planner.black_loyalty}")
                 planner.get_logger().debug("Requesting black move")
                 if not planner.handle_black_turn(lichess):
                     planner.get_logger().info("Game is over")

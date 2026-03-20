@@ -1,5 +1,5 @@
 from pynput import keyboard
-import threading
+import time
 
 
 #Class to listen for any key on the keyboard being held. 
@@ -7,26 +7,55 @@ import threading
 class KeyListener:
     def __init__(self, on_held_callback, on_release_callback, key: str):
         self.key_set = set()
-        keyboard.on_press_key(key, self.on_press)
-        keyboard.on_release_key(key, self.on_release)
+        self.listener = keyboard.Listener(
+            on_press = self.on_press,
+            on_release = self.on_release
+        )
+        self.activation_key = key
         self.on_held_callback = on_held_callback
         self.on_release_callback = on_release_callback
 
-    def on_press(self, event): 
-        if event.name not in self.key_set:
-            self.key_set.add(event.name)
-            self.on_held_callback()
+    def on_press(self, key): 
+        try:
+            if key.char == self.activation_key and key not in self.key_set:
+                self.key_set.add(key)
+                self.on_held_callback()
+        except AttributeError:
+            pass
 
-    def on_release(self, event):
-        self.key_set.discard(event.name)
+    def on_release(self, key):
+        self.key_set.discard(key)
         self.on_release_callback()
 
     def start(self):
-        thread = threading.Thread(target=keyboard.wait, daemon=True)
-        thread.start()
+        self.listener.start()
 
     def stop(self):
-        keyboard.unhook_all()
+        self.listener.stop()
+
+
+def test_held(key):
+    print("q is being held", flush = True)
+
+def test_release(key):
+    print("q was released", flush = True)
+
+
+def main():
+    listener = keyboard.Listener(
+        on_press = test_held, 
+        on_release = test_release
+    )
+    listener.start()
+
+    while True:
+        time.sleep(0.1)
+        pass
+
+
+if __name__ == "__main__":
+    main()
+
 
 
 

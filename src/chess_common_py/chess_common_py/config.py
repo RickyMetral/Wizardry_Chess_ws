@@ -1,3 +1,4 @@
 import os
 
+STOCKFISH_PATH = os.getenv("STOCKFISH_PATH")
 LICHESS_TOKEN = os.getenv("LICHESS_TOKEN")
