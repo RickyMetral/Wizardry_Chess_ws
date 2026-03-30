@@ -7,8 +7,7 @@ import json
 from chess_common_py.lichess_api import LichessApi
 
 
-class PlayerInputSrvNode(Node):
-
+class LichessPlayerInputSrvNode(Node):
     def __init__(self):
         super().__init__("chess_input_service_node")
         self.srv = self.create_service(PlayerInput, "player_input", self.get_next_move_callback)
@@ -160,7 +159,7 @@ class PlayerInputSrvNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = PlayerInputSrvNode()
+    node = LichessPlayerInputSrvNode()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()

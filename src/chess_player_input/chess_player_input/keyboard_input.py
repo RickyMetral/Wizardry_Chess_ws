@@ -42,10 +42,7 @@ def test_release(key):
 
 
 def main():
-    listener = keyboard.Listener(
-        on_press = test_held, 
-        on_release = test_release
-    )
+    listener = KeyListener(test_held, test_release, key = 'q')
     listener.start()
 
     while True:

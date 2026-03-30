@@ -15,7 +15,7 @@ def generate_launch_description():
             actions=[
                 Node(
                     package='chess_player_input',
-                    executable='chess_player_input_node',
+                    executable='lichess_player_input_node',
                     output='screen',
                     arguments=['--ros-args', '--log-level', 'info'] 
                 ),
