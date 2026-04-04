@@ -2,3 +2,7 @@ import os
 
 STOCKFISH_PATH = os.getenv("STOCKFISH_PATH")
 LICHESS_TOKEN = os.getenv("LICHESS_TOKEN")
+SQUARE_SIZE = 0.05 #in meters
+BOARD_Z = 0.02
+GANTRY_SPEED = 0.01
+SIMULATE = False
