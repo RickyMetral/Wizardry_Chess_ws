@@ -1,0 +1,191 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="chess_robot">
+
+  <!-- ============================================================
+       Configurable parameters
+       SQUARE_SIZE : side length of one chess square in meters
+       BOARD_Z     : height of the board surface above world origin
+       GANTRY_H    : height of the gantry rail above board surface
+       ============================================================ -->
+  <xacro:property name="square_size" value="0.05"/>   <!-- 5 cm per square -->
+  <xacro:property name="board_size"  value="0.40"/>   <!-- 8 × 5 cm = 40 cm -->
+  <xacro:property name="board_z"     value="0.02"/>   <!-- board sits 2 cm off ground -->
+  <xacro:property name="gantry_h"    value="0.25"/>   <!-- rails 25 cm above board -->
+  <xacro:property name="arm_len"     value="0.20"/>   <!-- Z-axis travel 20 cm -->
+
+  <!-- ============================================================
+       World / base_link
+       ============================================================ -->
+  <link name="world"/>
+
+  <link name="base_link">
+    <visual>
+      <geometry><box size="0.02 0.02 0.02"/></geometry>
+      <material name="dark_gray"><color rgba="0.2 0.2 0.2 1"/></material>
+    </visual>
+  </link>
+  <joint name="world_to_base" type="fixed">
+    <parent link="world"/>
+    <child  link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ============================================================
+       Chess board
+       Origin at square a1 corner; board lies in XY plane.
+       ============================================================ -->
+  <link name="chess_board">
+    <visual>
+      <origin xyz="${board_size/2} ${board_size/2} 0" rpy="0 0 0"/>
+      <geometry><box size="${board_size} ${board_size} 0.01"/></geometry>
+      <material name="board_color"><color rgba="0.76 0.60 0.42 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="${board_size/2} ${board_size/2} 0"/>
+      <geometry><box size="${board_size} ${board_size} 0.01"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="0.5"/>
+      <inertia ixx="0.01" iyy="0.01" izz="0.01" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+  <joint name="base_to_board" type="fixed">
+    <parent link="base_link"/>
+    <child  link="chess_board"/>
+    <origin xyz="0 0 ${board_z}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ============================================================
+       Gantry: X rail
+       Runs along the X axis (files a–h) above the board.
+       ============================================================ -->
+  <link name="x_rail">
+    <visual>
+      <origin xyz="${board_size/2} 0 0"/>
+      <geometry><box size="${board_size + 0.06} 0.02 0.02"/></geometry>
+      <material name="aluminum"><color rgba="0.8 0.8 0.8 1"/></material>
+    </visual>
+    <inertial>
+      <mass value="0.3"/>
+      <inertia ixx="0.001" iyy="0.001" izz="0.001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+  <joint name="gantry_x" type="prismatic">
+    <parent link="chess_board"/>
+    <child  link="x_rail"/>
+    <!-- rail slides along Y (ranks 1–8) -->
+    <origin xyz="0 0 ${gantry_h}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="0" upper="${board_size}" effort="10" velocity="0.2"/>
+    <dynamics damping="0.5"/>
+  </joint>
+
+  <!-- ============================================================
+       Gantry: Y carriage (slides along x_rail)
+       ============================================================ -->
+  <link name="y_carriage">
+    <visual>
+      <geometry><box size="0.04 0.04 0.04"/></geometry>
+      <material name="aluminum"/>
+    </visual>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.0001" iyy="0.0001" izz="0.0001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+  <joint name="gantry_y" type="prismatic">
+    <parent link="x_rail"/>
+    <child  link="y_carriage"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="0" upper="${board_size}" effort="10" velocity="0.2"/>
+    <dynamics damping="0.5"/>
+  </joint>
+
+  <!-- ============================================================
+       Z arm (lowers to pick / place pieces)
+       ============================================================ -->
+  <link name="z_arm">
+    <visual>
+      <origin xyz="0 0 ${-arm_len/2}"/>
+      <geometry><cylinder radius="0.008" length="${arm_len}"/></geometry>
+      <material name="dark_gray"/>
+    </visual>
+    <inertial>
+      <mass value="0.05"/>
+      <inertia ixx="0.00001" iyy="0.00001" izz="0.00001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+  <joint name="gantry_z" type="prismatic">
+    <parent link="y_carriage"/>
+    <child  link="z_arm"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 -1"/>
+    <limit lower="0" upper="${arm_len}" effort="5" velocity="0.1"/>
+    <dynamics damping="0.3"/>
+  </joint>
+
+  <!-- ============================================================
+       End-effector (electromagnet)
+       ============================================================ -->
+  <link name="end_effector">
+    <visual>
+      <geometry><cylinder radius="0.012" length="0.015"/></geometry>
+      <material name="magnet"><color rgba="0.3 0.3 0.8 1"/></material>
+    </visual>
+    <inertial>
+      <mass value="0.02"/>
+      <inertia ixx="0.000001" iyy="0.000001" izz="0.000001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+  <joint name="arm_to_effector" type="fixed">
+    <parent link="z_arm"/>
+    <child  link="end_effector"/>
+    <origin xyz="0 0 ${-arm_len}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ============================================================
+       Sample chess piece (pawn — reuse with xacro:macro for all)
+       ============================================================ -->
+  <xacro:macro name="pawn" params="name x y color_rgba">
+    <link name="${name}">
+      <visual>
+        <geometry><cylinder radius="0.015" length="0.030"/></geometry>
+        <material name="${name}_mat"><color rgba="${color_rgba}"/></material>
+      </visual>
+      <collision>
+        <geometry><cylinder radius="0.015" length="0.030"/></geometry>
+      </collision>
+      <inertial>
+        <mass value="0.03"/>
+        <inertia ixx="0.000001" iyy="0.000001" izz="0.000001" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+    </link>
+    <joint name="${name}_joint" type="fixed">
+      <parent link="chess_board"/>
+      <child  link="${name}"/>
+      <origin xyz="${x} ${y} 0.020" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- White pawns on rank 2 (y = 1.5 * square_size) -->
+  <xacro:pawn name="wp_a2" x="${0.5*square_size}" y="${1.5*square_size}" color_rgba="0.9 0.9 0.9 1"/>
+  <xacro:pawn name="wp_b2" x="${1.5*square_size}" y="${1.5*square_size}" color_rgba="0.9 0.9 0.9 1"/>
+  <xacro:pawn name="wp_c2" x="${2.5*square_size}" y="${1.5*square_size}" color_rgba="0.9 0.9 0.9 1"/>
+  <xacro:pawn name="wp_d2" x="${3.5*square_size}" y="${1.5*square_size}" color_rgba="0.9 0.9 0.9 1"/>
+  <xacro:pawn name="wp_e2" x="${4.5*square_size}" y="${1.5*square_size}" color_rgba="0.9 0.9 0.9 1"/>
+  <xacro:pawn name="wp_f2" x="${5.5*square_size}" y="${1.5*square_size}" color_rgba="0.9 0.9 0.9 1"/>
+  <xacro:pawn name="wp_g2" x="${6.5*square_size}" y="${1.5*square_size}" color_rgba="0.9 0.9 0.9 1"/>
+  <xacro:pawn name="wp_h2" x="${7.5*square_size}" y="${1.5*square_size}" color_rgba="0.9 0.9 0.9 1"/>
+
+  <!-- Black pawns on rank 7 (y = 6.5 * square_size) -->
+  <xacro:pawn name="bp_a7" x="${0.5*square_size}" y="${6.5*square_size}" color_rgba="0.1 0.1 0.1 1"/>
+  <xacro:pawn name="bp_b7" x="${1.5*square_size}" y="${6.5*square_size}" color_rgba="0.1 0.1 0.1 1"/>
+  <xacro:pawn name="bp_c7" x="${2.5*square_size}" y="${6.5*square_size}" color_rgba="0.1 0.1 0.1 1"/>
+  <xacro:pawn name="bp_d7" x="${3.5*square_size}" y="${6.5*square_size}" color_rgba="0.1 0.1 0.1 1"/>
+  <xacro:pawn name="bp_e7" x="${4.5*square_size}" y="${6.5*square_size}" color_rgba="0.1 0.1 0.1 1"/>
+  <xacro:pawn name="bp_f7" x="${6.5*square_size}" y="${6.5*square_size}" color_rgba="0.1 0.1 0.1 1"/>
+  <xacro:pawn name="bp_g7" x="${6.5*square_size}" y="${6.5*square_size}" color_rgba="0.1 0.1 0.1 1"/>
+  <xacro:pawn name="bp_h7" x="${7.5*square_size}" y="${6.5*square_size}" color_rgba="0.1 0.1 0.1 1"/>
+
+</robot>

@@ -17,6 +17,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/PlayerInput.srv"
   "srv/GetSquarePiece.srv"
   "srv/CheckMoveValid.srv"
+  "msg/Waypoint.msg"
+  "msg/WaypointSequence.msg"
   # DEPENDENCIES geometry_msgs # Add packages that above messages depend on
 )
 

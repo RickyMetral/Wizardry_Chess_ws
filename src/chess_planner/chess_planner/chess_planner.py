@@ -157,6 +157,7 @@ def main():
             if planner.white_turn:
                 planner.get_logger().info(f"White Loyalty: {planner.white_loyalty}")
                 planner.get_logger().debug("Requesting white move")
+
                 if not planner.handle_white_turn(lichess):
                     planner.get_logger().info("Game is over")
                     break
@@ -164,6 +165,7 @@ def main():
             elif planner.black_turn:
                 planner.get_logger().info(f"Black Loyalty: {planner.black_loyalty}")
                 planner.get_logger().debug("Requesting black move")
+
                 if not planner.handle_black_turn(lichess):
                     planner.get_logger().info("Game is over")
                     break
