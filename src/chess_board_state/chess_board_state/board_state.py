@@ -22,10 +22,11 @@ class BoardState(Node):
         if use_ros:
             super().__init__("board_state_node")
             self.move_sub = self.create_subscription(String, "player_move", self.update_board_state, 10)
-            self.check_move_valid_srv = self.create_service(CheckMoveValid, "check_move_valid", self.check_move_valid_callback)
-            self.get_piece_square_srv = self.create_service(GetSquarePiece, "get_square_piece", self.get_square_piece_callback)
+            self.check_move_valid_srv = self.create_service(CheckMoveValid, "check_move_valid", self._check_move_valid_callback)
+            self.get_piece_square_srv = self.create_service(GetSquarePiece, "get_square_piece", self._get_square_piece_callback)
             self.reset_board_srv = self.create_service(Trigger, "reset_board", self.reset_board)
             self.get_logger().info("Started Board State Service")
+        self.using_ros = use_ros
 
     #TODO Create callback that returns the location of a specified piece
 
@@ -38,31 +39,39 @@ class BoardState(Node):
         return self.engine.analyse(self.board, chess.engine.Limit(time=0.1))["score"].white().score(mate_score=mate_score)
 
     def update_board_state(self, player_move):
-        self.get_logger().info("Received Request to update board state callback")
-        #TODO If piece is captured, keep track of it so we can have a callback asking for its location
+        if self.using_ros:
+            self.get_logger().info("Received Request to update board state callback")
         self.board.push_uci(player_move.data)
 
+    #Takes in move in UCI format and parses to chess lib format
+    def check_move_valid(self, player_move):
+        move = chess.Move.from_uci(player_move)
+        return self.board.is_legal(move)
 
-    def check_move_valid_callback(self, request, response):
+    def _check_move_valid_callback(self, request, response):
         self.get_logger().info("Received Request to check valid move callback")
-        move = chess.Move.from_uci(request.player_move)
-        response.is_valid_move = self.board.is_legal(move)
+        response.is_valid_move = self.check_move_valid(request.player_move)
+        self.get_logger().info("Found move validity now")
 
         if not response.is_valid_move:
             response.is_check = False
             response.is_mate = False 
             return response
 
+        move = chess.Move.from_uci(request.player_move)
         self.board.push(move)
         response.is_check = self.board.is_check()
         response.is_mate = self.board.is_checkmate()
         self.board.pop()
 
         return response
-    
-    def get_square_piece_callback(self, request, response):
+    #Expected to be in chess library enum format(Ex: the value of chess.A3)
+    def get_square_piece(self, chess_square):
+        return self.board.piece_at(chess_square) 
+
+    def _get_square_piece_callback(self, request, response):
         self.get_logger().info("Received Request to get square piece callback")
-        piece = self.board.piece_at(request.chess_square)
+        piece = self.get_square_piece(request.chess_square )
 
         if piece:
             response.is_occupied = True
@@ -77,7 +86,8 @@ class BoardState(Node):
         self.board.reset()
         response.success = True
         response.message = "Board Reset"
-        self.get_logger().info("Reset Board")
+        if self.using_ros:
+            self.get_logger().info("Reset Board")
         return response
 
 def main(args=None):

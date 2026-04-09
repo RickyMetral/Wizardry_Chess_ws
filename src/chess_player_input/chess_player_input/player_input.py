@@ -4,14 +4,17 @@ import threading
 from rclpy.node import Node
 from chess_interfaces.srv import PlayerInput, CheckMoveValid
 import json
+from std_msgs.msg import String
 from chess_common_py.lichess_api import LichessApi
+from chess_board_state.board_state import BoardState
 
 
 class LichessPlayerInputSrvNode(Node):
+    board = BoardState(use_ros = False)
     def __init__(self):
         super().__init__("chess_input_service_node")
         self.srv = self.create_service(PlayerInput, "player_input", self.get_next_move_callback)
-        self.check_move_valid_cli = self.create_client(CheckMoveValid, "check_move_valid")
+        self.move_sub = self.create_subscription(String, "player_move", self.board.update_board_state, 10)
         self.get_logger().info("Chess player input service node ready!")
         self.lichess = LichessApi(self.get_logger())
         self._event_thread_started = False
@@ -19,10 +22,6 @@ class LichessPlayerInputSrvNode(Node):
         self.moves = []
         self.lock = threading.Lock()
         self.condition = threading.Condition(self.lock)
-
-        if not self.check_move_valid_cli.wait_for_service(timeout_sec=2.0):
-            self.get_logger().error("Could not find check move service. Shutting down...")
-            raise SystemExit
 
     def start_event_parsing_thread(self):
         lichess_response = self.lichess.wait_for_board_event() #Will block input until a new move is received
@@ -82,7 +81,7 @@ class LichessPlayerInputSrvNode(Node):
                 elif event["type"] == "gameFull":
                     status = event.get("status")
                     if status and status != "started":
-                        self.append_to_move_buffer("end", False) 
+                        self.append_to_move_buffer("end") 
                         self._event_thread_started = False
                         break
 
@@ -91,19 +90,19 @@ class LichessPlayerInputSrvNode(Node):
                     if not lichess_moves:
                         continue
                     last_move = lichess_moves.rsplit(" ", 1)[-1]
-                    self.append_to_move_buffer(last_move, False)
+                    self.append_to_move_buffer(last_move)
 
                 elif event["type"] == "gameState":
                     status = event.get("status")
                     if status and status != "started":
-                        self.append_to_move_buffer("end", False) 
+                        self.append_to_move_buffer("end") 
                         break
                     lichess_moves = event["moves"]
                     #If moves list is empty
                     if not lichess_moves:
                         continue
                     last_move = lichess_moves.rsplit(" ", 1)[-1]
-                    self.append_to_move_buffer(last_move, False)
+                    self.append_to_move_buffer(last_move)
 
                 else:
                     continue
@@ -138,7 +137,7 @@ class LichessPlayerInputSrvNode(Node):
         self.move_count = move_count
     
     #If validate is false then we don't need to check if the move is valid
-    def append_to_move_buffer(self, move: str, validate = True):
+    def append_to_move_buffer(self, move: str, validate = False):
         if not validate:
             with self.condition:
                     self.moves.append(move)
@@ -146,8 +145,8 @@ class LichessPlayerInputSrvNode(Node):
                     self.get_logger().info(f"Valid move received: {move}")
                     return True
 
-        result = self.check_move_valid_req(move)
-        if (result and result.is_valid_move) or move == "end" or move == "error":
+        is_valid_move = self.board.check_move_valid(move)
+        if (is_valid_move) or move == "end" or move == "error":
                 with self.condition:
                         self.moves.append(move)
                         self.condition.notify_all()
@@ -156,6 +155,7 @@ class LichessPlayerInputSrvNode(Node):
         else:
             self.get_logger().warn(f"Invalid move received: {move}")
             return False
+
 
 def main(args=None):
     rclpy.init(args=args)

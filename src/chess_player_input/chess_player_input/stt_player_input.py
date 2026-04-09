@@ -8,13 +8,17 @@ import queue
 import threading
 from chess_player_input.keyboard_input import KeyListener
 from vosk import Model, KaldiRecognizer  # Fix: was KalidexRecognizer
+from chess_board_state.board_state import BoardState
+from std_msgs.msg import String
 
 
 class STTPlayerInputSrvNode(Node):
+    board = BoardState(use_ros = False)
+
     def __init__(self, activation_key="q"):
         super().__init__("chess_input_service_node")
         self.srv = self.create_service(PlayerInput, "player_input", self.get_next_move_callback)
-        self.check_move_valid_cli = self.create_client(CheckMoveValid, "check_move_valid")
+        self.move_sub = self.create_subscription(String, "player_move", self.board.update_board_state, 10)
         self.model = Model("vosk-model-small-en-us")
         self.q = queue.Queue()
         self.grammar = ["a", "b", "c", "d", "e", "f", "g", "h",
@@ -38,9 +42,6 @@ class STTPlayerInputSrvNode(Node):
         self.lock = threading.Lock()
         self.condition = threading.Condition(self.lock)
 
-        if not self.check_move_valid_cli.wait_for_service(timeout_sec=2.0):
-            self.get_logger().error("Could not find check move service. Shutting down...")
-            raise SystemExit
         self.get_logger().info("Chess player input service node ready!")
 
     def audio_callback(self, indata, frames, time, status):
@@ -50,13 +51,6 @@ class STTPlayerInputSrvNode(Node):
 
     def stop_listening(self):
         self._listening_event.clear()
-
-    def check_move_valid_req(self, player_move):
-        req = CheckMoveValid.Request()
-        req.player_move = player_move
-        future = self.check_move_valid_cli.call_async(req)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=10.0)
-        return future.result()
 
     def get_next_move_callback(self, request, response):
         self.get_logger().info(f'Received request for color: {request.player_color}')
@@ -129,8 +123,8 @@ class STTPlayerInputSrvNode(Node):
             self.get_logger().info(f"Valid move received: {move}")
             return True
 
-        result = self.check_move_valid_req(move)
-        if (result and result.is_valid_move) or move in ("end", "error"):
+        is_valid_move = self.board.check_move_valid(move)
+        if is_valid_move or move in ("end", "error"):
             with self.condition:
                 self.moves.append(move)
                 self.condition.notify_all()
