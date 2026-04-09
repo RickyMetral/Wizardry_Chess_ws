@@ -51,7 +51,7 @@ class ChessNavNode(Node):
         if uci == "end" or uci == "error":
             return
         if uci == "reset":
-            #TODO: Adda way to reset the board
+            #TODO: Add a way to reset the board
             pass
         
         try:

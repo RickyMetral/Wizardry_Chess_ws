@@ -1,8 +1,21 @@
 import os
 
+#------TOKENS---------
 STOCKFISH_PATH = os.getenv("STOCKFISH_PATH")
 LICHESS_TOKEN = os.getenv("LICHESS_TOKEN")
+
+#------MOTOR MEASUREMENTS---------
 SQUARE_SIZE = 0.05 #in meters
-BOARD_Z = 0.02
+BOARD_Z = 0
 GANTRY_SPEED = 0.01
 SIMULATE = False
+REV_DISTANCE = 0.05
+MICROSTEP = 1
+REV_STEPS = 200/MICROSTEP
+
+
+#------RPI PINS--------
+X_STEP_PIN = 12
+X_DIR_PIN = 16
+EM_PIN = 27
+X_EN_PIN = 22
