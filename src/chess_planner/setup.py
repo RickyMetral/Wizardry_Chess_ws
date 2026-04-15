@@ -24,7 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'chess_planner_node = chess_planner.chess_planner:main'
+            f'chess_planner_node = {package_name}.planner:main',
+            f'lichess_planner_node = {package_name}.lichess_planner:main'
         ],
     },
 )

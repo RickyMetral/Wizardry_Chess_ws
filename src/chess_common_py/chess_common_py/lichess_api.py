@@ -3,10 +3,10 @@ This file is where all Lichess api wrappers will be written. Check out https://l
 Everything will be wrapped under the lichess class and be called as methods of said class. 
  """
 import requests
-from chess_common_py.config import LICHESS_TOKEN
+from chess_common_py.config import LICHESS_TOKEN, BOT_NAME
 
 class LichessApi:
-    bot_username = "maia9"
+    bot_username = BOT_NAME
     _game_id = None
     _player_color = None
 

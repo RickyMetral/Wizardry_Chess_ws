@@ -10,15 +10,15 @@ def generate_launch_description():
             output='screen',
             arguments=['--ros-args', '--log-level', 'info'] 
         ),
+        Node(
+            package='chess_player_input',
+            executable='stt_player_input_node',
+            output='screen',
+            arguments=['--ros-args', '--log-level', 'info'] 
+        ),
         TimerAction(
             period=3.0,
             actions=[
-                Node(
-                    package='chess_player_input',
-                    executable='stt_player_input_node',
-                    output='screen',
-                    arguments=['--ros-args', '--log-level', 'info'] 
-                ),
                 Node(
                     package='chess_planner',
                     executable='chess_planner_node',

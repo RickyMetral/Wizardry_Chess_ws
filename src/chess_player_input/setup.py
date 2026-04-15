@@ -24,7 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'lichess_player_input_node = chess_player_input.player_input:main',
+            'lichess_player_input_node = chess_player_input.lichess_player_input:main',
             'stt_player_input_node = chess_player_input.stt_player_input:main'
         ],
     },

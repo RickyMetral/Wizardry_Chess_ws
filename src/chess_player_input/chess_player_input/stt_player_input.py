@@ -2,12 +2,12 @@
 import rclpy
 from rclpy.node import Node
 import sounddevice as sd
-from chess_interfaces.srv import PlayerInput, CheckMoveValid
+from chess_interfaces.srv import PlayerInput 
 import json
 import queue
 import threading
 from chess_player_input.keyboard_input import KeyListener
-from vosk import Model, KaldiRecognizer  # Fix: was KalidexRecognizer
+from vosk import Model, KaldiRecognizer  
 from chess_board_state.board_state import BoardState
 from std_msgs.msg import String
 
@@ -16,7 +16,7 @@ class STTPlayerInputSrvNode(Node):
     board = BoardState(use_ros = False)
 
     def __init__(self, activation_key="q"):
-        super().__init__("chess_input_service_node")
+        super().__init__("stt_chess_input_service_node")
         self.srv = self.create_service(PlayerInput, "player_input", self.get_next_move_callback)
         self.move_sub = self.create_subscription(String, "player_move", self.board.update_board_state, 10)
         self.model = Model("vosk-model-small-en-us")
@@ -30,8 +30,6 @@ class STTPlayerInputSrvNode(Node):
         )
         self.stream.start()
 
-        # Fix: use threading.Event instead of a bare bool to eliminate the race condition.
-        # Event.set/clear/is_set are all thread-safe by design, no external lock needed.
         self._listening_event = threading.Event()
 
         self.listener = KeyListener(self.listen_callback, self.stop_listening, activation_key)
@@ -69,7 +67,7 @@ class STTPlayerInputSrvNode(Node):
 
     def listen_callback(self):
         self.get_logger().info("Listening for move...")
-        self._listening_event.set()  # Fix: thread-safe set
+        self._listening_event.set()  
 
         # Clear stale audio
         while not self.q.empty():

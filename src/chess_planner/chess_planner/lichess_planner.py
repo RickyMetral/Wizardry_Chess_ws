@@ -9,12 +9,10 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from chess_interfaces.srv import PlayerInput
-from chess_interfaces.srv import GetSquarePiece 
 from chess_board_state.board_state import BoardState
 from chess_common_py.lichess_api import LichessApi
-from chess.engine import Cp, Mate, MateGiven
 
-class ChessPlanner(Node):
+class LichessPlanner(Node):
     black_loyalty = 100
     white_loyalty = 100
     white_cp_score = 0
@@ -25,10 +23,9 @@ class ChessPlanner(Node):
     move_count = 0
 
     def __init__(self):
-        super().__init__("chess_planner_node")
+        super().__init__("lichess_planner_node")
         self.move_pub = self.create_publisher(String, "player_move", 10)#TODO Create a message that also includes player color in the message
         self.player_input_cli = self.create_client(PlayerInput, "player_input")
-        self.get_piece_square_cli = self.create_client(GetSquarePiece, "get_square_piece")
         self.reset_board_trigger = self.create_client(Trigger, "reset_board")
         self.board = BoardState(use_ros = False)
 
@@ -37,9 +34,6 @@ class ChessPlanner(Node):
             raise SystemExit
         if not self.reset_board_trigger.wait_for_service(timeout_sec=2.0):
             self.get_logger().error("Could not find reset board trigger. Shutting down...")
-            raise SystemExit
-        if not self.get_piece_square_cli.wait_for_service(timeout_sec=2.0):
-            self.get_logger().error("Could not find get piece square service. Shutting down...")
             raise SystemExit
 
     #Request a move from specified player color
@@ -71,29 +65,8 @@ class ChessPlanner(Node):
             self.white_turn = False 
 
     def set_player_color(self, player_color):
-        ChessPlanner.player_color = player_color
+        LichessPlanner.player_color = player_color
     
-    def get_square_piece_req(self, chess_square):
-        #If square input is a string, convert it to the enum for chess lib
-        if isinstance(chess_square, str):
-            try:
-                chess_square = chess.parse_square(chess_square)
-            except ValueError:
-                self.get_logger().info("Could not parse chess square name")
-                raise SystemExit
-        req = GetSquarePiece.Request()
-        req.chess_square = chess_square
-        future = self.get_piece_square_cli.call_async(req)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=3.0)
-        return future.result()
-
-    def get_square_piece(self, chess_square):
-        future = self.get_square_piece_req(chess_square)
-        if future.is_occupied:
-            return future.piece_type
-        else:
-            return 255 #255 is square is not occupied
-
     def update_white_loyalty(self, loyalty_multiplier: int):
         score = self.board.analyze_board()
         score_diff = score - self.white_cp_score
@@ -146,7 +119,7 @@ class ChessPlanner(Node):
 def main():
     rclpy.init()
     try:
-        planner = ChessPlanner()
+        planner = LichessPlanner()
         lichess = LichessApi(planner.get_logger())
         if not lichess.start_game():
             raise SystemExit

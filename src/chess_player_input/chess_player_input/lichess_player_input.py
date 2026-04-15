@@ -12,7 +12,7 @@ from chess_board_state.board_state import BoardState
 class LichessPlayerInputSrvNode(Node):
     board = BoardState(use_ros = False)
     def __init__(self):
-        super().__init__("chess_input_service_node")
+        super().__init__("lichess_input_service_node")
         self.srv = self.create_service(PlayerInput, "player_input", self.get_next_move_callback)
         self.move_sub = self.create_subscription(String, "player_move", self.board.update_board_state, 10)
         self.get_logger().info("Chess player input service node ready!")

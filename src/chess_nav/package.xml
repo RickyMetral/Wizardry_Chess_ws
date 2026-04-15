@@ -10,6 +10,7 @@
   <depend>rclpy</depend>
   <depend>chess_common_py</depend>
   <depend>chess_interfaces</depend>
+  <depend>chess_motor_schema</depend>
 
 
   <!-- ROS messages -->
