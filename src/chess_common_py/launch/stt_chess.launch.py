@@ -17,6 +17,13 @@ def generate_launch_description():
             emulate_tty=True,
             arguments=['--ros-args', '--log-level', 'info'] 
         ),
+        Node(
+            package='chess_nav',
+            executable='chess_nav_node',
+            output='screen',
+            arguments=['--ros-args', '--log-level', 'info'] 
+        ),
+
         TimerAction(
             period=3.0,
             actions=[

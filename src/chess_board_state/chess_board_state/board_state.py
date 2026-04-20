@@ -38,10 +38,10 @@ CHESS BOARD COORDINATE MAP (Gantry View)
   +---+---+      +---+---+---+---+---+---+---+---+     +---+---+ 
 1 |   |   |      |   |   |   |   |   |   |   |   |     |   |   |  1
   +---+---+      +---+---+---+---+---+---+---+---+     +---+---+ 
-   -2   -1         a   b   c   d   e   f   g   h         9   10
+   -3  -2    -1     a   b   c   d   e   f   g   h   8   9   10
     (0,0) Origin at a1
 
-White graveyard are the i and j columns and the black graveyard are the z and y columns
+White graveyard are the -3 and -2 columns and the black graveyard are the 0 and 10 columns
 """
 
 
@@ -62,7 +62,7 @@ class BoardState(Node):
         self.using_ros = use_ros
 
         #Pieces to be inserted will use chess.(PieceType). Ex: chess.ROOK, chess.PAWN
-        for col in [-2, -1]:
+        for col in [-3, -2]:
             for row in range(1, 9):
                 square = f"{col},{row}"
                 self.black_graveyard[square] = None
@@ -87,7 +87,7 @@ class BoardState(Node):
 
     def coords_to_square(self, x: int, y: int) -> str:
         square = ""
-        if x >= 9 or x <= -1:
+        if x >= 10 or x <= -2:
             square = f"{x/SQUARE_SIZE},{y/SQUARE_SIZE}"          
         else:
             square = chr(round(x) + ord('a')) + "," + str(round(y/SQUARE_SIZE))  #TODO Might have to round cuz of float accuracy loss
@@ -114,7 +114,6 @@ class BoardState(Node):
         except chess.InvalidMoveError:
             return False
 
-
     def _check_move_valid_callback(self, request, response):
         self.get_logger().info("Received Request to check valid move callback")
         response.is_valid_move = self.check_move_valid(request.player_move)
@@ -132,6 +131,7 @@ class BoardState(Node):
         self.board.pop()
 
         return response
+
     #Expected to be in chess library enum format(Ex: the value of chess.A3)
     def get_square_piece(self, chess_square):
         return self.board.piece_at(chess_square) 

@@ -1,7 +1,6 @@
 import rclpy
 import chess
 from rclpy.node import Node
-from rclpy.action import ActionClient
 
 from collections import deque
  
@@ -10,6 +9,7 @@ from std_msgs.msg import String
 from chess_interfaces.srv import GetSquarePiece
 from chess_motor_schema.gantry import ChessGantry
 from chess_board_state.board_state import BoardState
+from chess_common_py import SQUARE_SIZE_MM as SQUARE_SIZE
  
 
 class ChessNavNode(Node):
@@ -18,10 +18,6 @@ class ChessNavNode(Node):
     def __init__(self):
         super().__init__("chess_nav_node")
         self.gantry = ChessGantry()
-        self.get_piece_cli = self.create_client(GetSquarePiece, "get_square_piece")
-        if not self.get_piece_cli.wait_for_service(timeout_sec=5.0):
-            self.get_logger().error("get_square_piece not available")
-            raise SystemExit
         self.move_sub = self.create_subscription(
             String, "player_move", self.on_player_move, 10
         )
@@ -56,7 +52,7 @@ class ChessNavNode(Node):
         self._move_piece(from_x, from_y, to_x, to_y)
 
     def _move_piece(self, from_x: float, from_y: float, to_x, to_y) -> bool:
-        #TODO Use move to xy, then turn EM on and use navigate to xy, then turn EM off to move a piece
+        #Use move to xy, then turn EM on and use navigate to xy, then turn EM off to move a piece
         if not self._move_to_xy(from_x, from_y):
             self.get_logger().info(f"Something went wrong moving to ({from_x}, {from_y})")
             return False
@@ -68,47 +64,79 @@ class ChessNavNode(Node):
         return True
 
     def _navigate_to_xy(self, x: float, y: float) -> bool:
-        #TODO Implement navigating to a coordinate
-        pass
+        start_square = self.board.coords_to_square(self.gantry._gx, self.gantry._gy)
+        end_square = self.board.coords_to_square(x, y)
+        waypoints = self._bfs_path(start_square, end_square)
 
-    def _bfs_path(self, from_col, from_row, to_col, to_row):
+        if waypoints == None:
+            self.get_logger().warn(f"Could not find path to square: {end_square}")
+            return False
+
+        for (dx, dy) in waypoints:
+            self.gantry.move_to_xy(dx, dy)
+
+        self.get_logger().infO(f"Finished navigating to square: {end_square}")
+        return True
+
+    def _bfs_path(self, from_square, to_square):
         """ BFS on the 12x8 grid. Returns list of (col, row) waypoints excluding start.
         Treats occupied squares as obstacles (except the destination).
         """
-        start = (from_col, from_row)
-        goal = (to_col, to_row)
 
-        if start == goal:
+        from_x, from_y = self.board.square_to_coords(from_square)
+        to_x, to_y =    self.board.square_to_coords(to_square) 
+        half = SQUARE_SIZE/2
+
+        if from_square == to_square:
             return []
 
         occupied = self._get_occupied_squares()
+        start = (from_x, from_y)
 
         queue = deque()
         queue.append((start, [start]))
-        visited = {start}
+        visited = {from_square}
 
-        while queue:
-            (col, row), path = queue.popleft()
+        #Checks if a corner is in bounds
+        def in_bounds(cx, cy):
+            return (-3 - half) <= cx <= (11 * SQUARE_SIZE + half) and \
+                (-half) <= cy <= (8 * SQUARE_SIZE + half)
 
-            for dc, dr in [(1,0),(-1,0),(0,1),(0,-1)]:
-                nc, nr = col + dc, row + dr
+        start_corners = [
+            (from_x - half, from_y - half),
+            (from_x + half, from_y - half),
+            (from_x - half, from_y + half),
+            (from_x + half, from_y + half),
+        ]
 
-                if not (-2 <= nc <= 9 and -2 <= nr <= 9):
-                    continue
-                if (nc, nr) in visited:
-                    continue
-                # Don't allow passing through empty squares or the destination
-                if (nc, nr) in occupied and (nc, nr) != goal:
-                    continue
+        for start_corner in start_corners:
+            if not in_bounds(*start_corner):
+                continue
 
-                new_path = path + (nc, nr)
-                if (nc, nr) == goal:
-                    return new_path[1:]  
+            while queue:
+                (col, row), path = queue.popleft()
 
-                visited.add((nc, nr))
-                queue.append(((nc, nr), new_path))
+                for dc, dr in [(SQUARE_SIZE,0),(-SQUARE_SIZE,0),(0,SQUARE_SIZE),(0,-SQUARE_SIZE)]:
+                    nc, nr = col + dc, row + dr
+                    cur_sq = self.board.coords_to_square(nc, nr)
 
-        return None  
+                    if not (-3 <= nc <= 10 and 0 <= nr <= 8):
+                        continue
+                    if cur_sq in visited:
+                        continue
+
+                    # Don't allow passing through occupied squares or the destination
+                    if cur_sq in occupied and cur_sq != to_square:
+                        continue
+
+                    new_path = path + (nc, nr)
+                    if abs(to_x - nc) < SQUARE_SIZE and abs(to_y - nr) < SQUARE_SIZE:
+                        return [start_corner] + new_path[1:] + [(to_x, to_y)]
+
+                    visited.add(cur_sq)
+                    queue.append(((nc, nr), new_path))
+
+            return None  
 
     #Moves to coords directly, does not plan path
     def _move_to_xy(self, x: float, y: float) -> bool:
@@ -154,12 +182,22 @@ class ChessNavNode(Node):
 
         for square in chess.SQUARES:
             if self.is_occupied_square(square):
-                col = chess.square_name(square)[1]
-                row = chess.square_name(square)[0]
-                occupied.add((col,row))
+                occupied.add(chess.square_name(square))
             
 
     def _reset_board(self):
         return None
     
+def main(args=None):
+    rclpy.init(args=args)
+    node = ChessNavNode()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
+if __name__ == '__main__':
+    main()

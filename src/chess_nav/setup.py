@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            f'chess_nav_node = {package_name}.navigation:main'
         ],
     },
 )
