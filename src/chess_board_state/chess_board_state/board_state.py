@@ -108,8 +108,12 @@ class BoardState(Node):
 
     #Takes in move in UCI format and parses to chess lib format
     def check_move_valid(self, player_move):
-        move = chess.Move.from_uci(player_move)
-        return self.board.is_legal(move)
+        try:
+            move = chess.Move.from_uci(player_move)
+            return self.board.is_legal(move)
+        except chess.InvalidMoveError:
+            return False
+
 
     def _check_move_valid_callback(self, request, response):
         self.get_logger().info("Received Request to check valid move callback")

@@ -11,7 +11,6 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools'],
     zip_safe=True,
     maintainer='ricky',
     maintainer_email='ricardometral2005@gmail.com',
@@ -22,6 +21,7 @@ setup(
             'pytest',
         ],
     },
+    install_requires=['setuptools', 'pynput', 'sounddevice'],
     entry_points={
         'console_scripts': [
             'lichess_player_input_node = chess_player_input.lichess_player_input:main',

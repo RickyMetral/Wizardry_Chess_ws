@@ -1,33 +1,12 @@
-from gpiozero import Device, OutputDevice, Button
+from gpiozero import Device, OutputDevice, Button, PWMOutputDevice
 from gpiozero.pins.lgpio import LGPIOFactory
 import time
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../chess_common_py/chess_common_py'))
+from config import * 
 
 Device.pin_factory = LGPIOFactory(chip=4)
-
-SQUARE_SIZE_MM = 50       
-MICROSTEP = 8
-REV_STEPS = 200 * MICROSTEP
-BELT_PITCH_MM = 2
-PULLEY_TEETH = 20
-MM_PER_REV = PULLEY_TEETH * BELT_PITCH_MM
-MM_PER_STEP = MM_PER_REV / REV_STEPS
-
-X_STEP_PIN = 12
-X_DIR_PIN = 16
-X_EN_PIN = 22
-
-Y_STEP_PIN = 6
-Y_DIR_PIN = 26
-Y_EN_PIN = 5
-
-EM_PIN = 13
-
-
-# Limit switch pins
-X_MIN_PIN  = 17    # X axis minimum (home position)
-X_MAX_PIN  = 18    # X axis maximum
-Y_MIN_PIN  = 23    # Y axis minimum (home position)
-Y_MAX_PIN  = 24    # Y axis maximum
 
 
 class StepperMotor:
@@ -63,11 +42,6 @@ class StepperMotor:
             return False
         return self.max_switch.is_pressed
 
-    def move_one_square_x(self, direction: bool, delay: float = 0.001):
-        self.move_x_mm(self.square_size_mm, direction, delay)
-
-    def move_one_square_y(self, direction: bool, delay: float = 0.001):
-        self.move_y_mm(self.square_size_mm, direction, delay)
 
     def move(self, steps: int, direction: bool, delay: float = 0.001) -> int:
         """
@@ -156,7 +130,7 @@ class ChessGantry:
 
     def test_magnet(self):
         self.magnet_on()
-        time.sleep(6)
+        time.sleep(20)
         self.magnet_off()
 
     #True is negative x, False is positive x
@@ -174,6 +148,12 @@ class ChessGantry:
         self._gy += self.step_to_mm(steps_taken) * dir
 
         return steps_taken
+
+    def move_one_square_x(self, direction: bool, delay: float = 0.001):
+        self.move_x(self.mm_to_step(self.square_size_mm), direction, delay)
+
+    def move_one_square_y(self, direction: bool, delay: float = 0.001):
+        self.move_y(self.mm_to_step(self.square_size_mm), direction, delay)
 
     def mm_to_step(self, distance_mm):
         return distance_mm/self.mm_per_step
@@ -201,24 +181,28 @@ def main():
     gantry = ChessGantry()
 
     try:
-        print("Magnet on")
-        gantry.test_magnet()
-        print("Magnet off")
+        # print("Magnet on")
+        # gantry.test_magnet()
+        # print("Magnet off")
 
-        print("Testing X motor...")
-        gantry.move_x(3200, direction=True, delay=0.00009)
-        time.sleep(1)
-        gantry.move_x(3200, direction=False, delay=0.00009)
-        time.sleep(1)
+        # print("Testing X motor...")
+        # gantry.move_x(3200, direction=False, delay=0.00009)
+        # time.sleep(1)
+        # gantry.move_x(3200, direction=True, delay=0.00009)
+        # time.sleep(1)
 
+        gantry.magnet_on()
+        time.sleep(2)
         print("Testing Y motor...")
-        gantry.move_y(3200, direction=True, delay=0.00009)
+        gantry.move_y(4800, direction=False, delay=0.00009)
         time.sleep(1)
-        gantry.move_y(3200, direction=False, delay=0.00009)
+        gantry.magnet_off()
+        time.sleep(5)
+        gantry.move_y(4800, direction=True, delay=0.0000000001)
         time.sleep(1)
 
-        print("Testing XY move...")
-        gantry.move_xy(3200, True, 3200, True, delay=0.00009)
+        # print("Testing XY move...")
+        # gantry.move_xy(3200, True, 3200, True, delay=0.00009)
 
     finally:
         gantry.close()

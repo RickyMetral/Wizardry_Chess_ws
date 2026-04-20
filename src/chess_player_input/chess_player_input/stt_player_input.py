@@ -2,12 +2,13 @@
 import rclpy
 from rclpy.node import Node
 import sounddevice as sd
+from gpiozero import Button
 from chess_interfaces.srv import PlayerInput 
 import json
 import queue
 import threading
-from chess_player_input.keyboard_input import KeyListener
 from vosk import Model, KaldiRecognizer  
+from chess_common_py.config import VOSK_PATH, VOICE_ACTIVATION_PIN
 from chess_board_state.board_state import BoardState
 from std_msgs.msg import String
 
@@ -15,25 +16,29 @@ from std_msgs.msg import String
 class STTPlayerInputSrvNode(Node):
     board = BoardState(use_ros = False)
 
-    def __init__(self, activation_key="q"):
+    def __init__(self, button_pin):
         super().__init__("stt_chess_input_service_node")
         self.srv = self.create_service(PlayerInput, "player_input", self.get_next_move_callback)
         self.move_sub = self.create_subscription(String, "player_move", self.board.update_board_state, 10)
-        self.model = Model("vosk-model-small-en-us")
+        self.model = Model(VOSK_PATH)
         self.q = queue.Queue()
-        self.grammar = ["a", "b", "c", "d", "e", "f", "g", "h",
-                        "1", "2", "3", "4", "5", "6", "7", "8", "move"]
+        self.grammar = ["one", "two", "three", "four", "five", "six", "seven", "eight", 
+               "a", "b", "c", "d", "e", "f", "g", "h", "[unkown]"]
+        self.WORD_TO_DIGIT = {
+            "one": "1", "two": "2", "three": "3", "four": "4",
+            "five": "5", "six": "6", "seven": "7", "eight": "8"
+        }
         self.recognizer = KaldiRecognizer(self.model, 16000, json.dumps(self.grammar))
         self.stream = sd.RawInputStream(
             samplerate=16000, blocksize=8000, dtype='int16',
-            channels=1, callback=self.audio_callback  # Fix: implemented below
+            channels=1, callback=self.audio_callback  
         )
         self.stream.start()
+        self.button = Button(button_pin, pull_up = True, hold_time = 0.3)
+        self.button.when_held = self.listen_for_audio
+        self.button.when_released= self.stop_listening_audio
 
-        self._listening_event = threading.Event()
-
-        self.listener = KeyListener(self.listen_callback, self.stop_listening, activation_key)
-        self.listener.start()  # Fix: was never called
+        self._listening = threading.Event()
 
         self.move_count = 0
         self.moves = []
@@ -47,8 +52,13 @@ class STTPlayerInputSrvNode(Node):
             self.get_logger().warn(f"Audio stream status: {status}")
         self.q.put(bytes(indata))
 
-    def stop_listening(self):
-        self._listening_event.clear()
+    def stop_listening_audio(self):
+        self._listening.clear()
+        #Empty the queue 
+        while not self.q.empty():
+            self.q.get()
+
+        self.get_logger().info("Stopped Listening")
 
     def get_next_move_callback(self, request, response):
         self.get_logger().info(f'Received request for color: {request.player_color}')
@@ -65,32 +75,30 @@ class STTPlayerInputSrvNode(Node):
             response.move = "error"
             return response
 
-    def listen_callback(self):
+    def process_vosk_result(self, text):
+        text = text.split()
+        converted_words = [self.WORD_TO_DIGIT.get(w, w) for w in text]
+        return "".join(converted_words)
+
+    def listen_for_audio(self):
         self.get_logger().info("Listening for move...")
-        self._listening_event.set()  
+        self._listening.set()
+        # self._listening_event.set()  
 
-        # Clear stale audio
-        while not self.q.empty():
-            self.q.get()
-
-        while self._listening_event.is_set():  
+        while self._listening.is_set():  
             data = self.q.get()
             if self.recognizer.AcceptWaveform(data):
                 result = json.loads(self.recognizer.Result())
                 text = result.get("text", "")
+                text = self.process_vosk_result(text)
 
-                if len(text) == 4:
-                    self.get_logger().info(f"Move Captured: {text}")
-                    if self.append_to_move_buffer(text, validate=True):
-                        self._listening_event.clear()  
-                        return text
-                    else:
-                        while not self.q.empty():
-                            self.q.get()
+                self.get_logger().info(f"Move Captured: {text}")
+                if len(text) == 4 and self.append_to_move_buffer(text, validate=True):
+                    self.get_logger().info(f"Move validated!")
+                    # self._listening_event.clear()  
+                    return text
+                self.get_logger().info(f"Given move invalid")
 
-                elif len(text) > 4:
-                    while not self.q.empty():
-                        self.q.get()
 
     def get_white_move(self) -> str:
         with self.condition:
@@ -135,7 +143,7 @@ class STTPlayerInputSrvNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = STTPlayerInputSrvNode()
+    node = STTPlayerInputSrvNode(VOICE_ACTIVATION_PIN)
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()

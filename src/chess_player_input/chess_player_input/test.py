@@ -1,27 +1,24 @@
-import speech_recognition as sr
-r = sr.Recognizer()
+"""Test a single button input using gpiozero."""
 
-while True:
+from gpiozero import Button
+
+BUTTON_PIN = 16  # Change this to your button's BCM pin number
+
+def main():
+    button = Button(BUTTON_PIN, pull_up=True, hold_time = 0.2)
+
+    print(f"Listening on pin {BUTTON_PIN}. Press Ctrl+C to exit.")
+
+    button.when_held = lambda: print("Button RELEASED")
+    button.when_released = lambda: print("Button HELD")
+
     try:
-        with sr.Microphone() as source:
-            print("Listening...")
-            
-            r.adjust_for_ambient_noise(source, duration=0.2)
-            audio = r.listen(source)
-            text = r.recognize_google(audio)
-            text = text.lower()  
-            print("You said:", text)
-            
-            if "exit" in text:
-                print("Exiting program...")
-                break
-
-    except sr.RequestError as e:
-        print("Could not request results; {0}".format(e))
-
-    except sr.UnknownValueError:
-        print("Could not understand audio")
-
+        while True:
+            pass
     except KeyboardInterrupt:
-        print("Program terminated by user")
-        break
+        print("Exiting...")
+    finally:
+        button.close()
+
+if __name__ == "__main__":
+    main()

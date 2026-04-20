@@ -14,6 +14,7 @@ def generate_launch_description():
             package='chess_player_input',
             executable='stt_player_input_node',
             output='screen',
+            emulate_tty=True,
             arguments=['--ros-args', '--log-level', 'info'] 
         ),
         TimerAction(

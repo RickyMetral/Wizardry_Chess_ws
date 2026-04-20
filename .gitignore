@@ -16,3 +16,6 @@ build/
 #python cache
 __pycache__/
 *.pyc
+
+#Vosk sound model
+vosk-model-small-en-us/*
