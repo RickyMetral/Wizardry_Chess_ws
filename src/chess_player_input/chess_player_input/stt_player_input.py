@@ -34,11 +34,11 @@ class STTPlayerInputSrvNode(Node):
             channels=1, callback=self.audio_callback  
         )
         self.stream.start()
-        self.button = Button(button_pin, pull_up = True, hold_time = 0.3)
-        self.button.when_held = self.listen_for_audio
-        self.button.when_released= self.stop_listening_audio
-
+        self.button = Button(button_pin, pull_up = True, hold_time = 0.1)
+        self.button.when_released = self._listen_thread_start
+        self.button.when_held = self.stop_listening_audio
         self._listening = threading.Event()
+        self._listen_thread = None
 
         self.move_count = 0
         self.moves = []
@@ -46,6 +46,13 @@ class STTPlayerInputSrvNode(Node):
         self.condition = threading.Condition(self.lock)
 
         self.get_logger().info("Chess player input service node ready!")
+    
+    def _listen_thread_start(self):
+        if self._listen_thread is not None and self._listen_thread.is_alive():
+            return
+        self._listen_thread = threading.Thread(target=self.listen_for_audio, daemon=True)
+        self._listen_thread.start()
+
 
     def audio_callback(self, indata, frames, time, status):
         if status:
@@ -82,11 +89,15 @@ class STTPlayerInputSrvNode(Node):
 
     def listen_for_audio(self):
         self.get_logger().info("Listening for move...")
+        self.recognizer.Reset()  
         self._listening.set()
-        # self._listening_event.set()  
 
         while self._listening.is_set():  
-            data = self.q.get()
+            try:
+                data = self.q.get(timeout=0.1)  # wakes up every 100ms to check the flag
+            except queue.Empty:
+                continue
+
             if self.recognizer.AcceptWaveform(data):
                 result = json.loads(self.recognizer.Result())
                 text = result.get("text", "")
@@ -95,7 +106,7 @@ class STTPlayerInputSrvNode(Node):
                 self.get_logger().info(f"Move Captured: {text}")
                 if len(text) == 4 and self.append_to_move_buffer(text, validate=True):
                     self.get_logger().info(f"Move validated!")
-                    # self._listening_event.clear()  
+                    self._listening.clear()
                     return text
                 self.get_logger().info(f"Given move invalid")
 

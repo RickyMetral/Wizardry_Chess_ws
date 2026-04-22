@@ -23,8 +23,7 @@ class StepperMotor:
         self.en   = OutputDevice(en_pin, active_high=False, initial_value=False)
         self.min_switch = min_switch
         self.max_switch = max_switch
-        self.position   = 0   # Track position in steps
-
+        self.position   = 0
 
     def enable(self):
         self.en.on()
@@ -35,13 +34,12 @@ class StepperMotor:
     def is_at_min(self) -> bool:
         if self.min_switch is None:
             return False
-        return self.min_switch.is_pressed
+        return not self.min_switch.is_pressed
 
     def is_at_max(self) -> bool:
         if self.max_switch is None:
             return False
-        return self.max_switch.is_pressed
-
+        return not self.max_switch.is_pressed
 
     def move(self, steps: int, direction: bool, delay: float = 0.001) -> int:
         """
@@ -53,11 +51,10 @@ class StepperMotor:
         steps_taken = 0
 
         for _ in range(steps):
-            # Check limits before each step
-            if direction and self.is_at_max():
+            if not direction and self.is_at_max():
                 print("Max limit switch triggered, stopping")
                 break
-            if not direction and self.is_at_min():
+            if direction and self.is_at_min():
                 print("Min limit switch triggered, stopping")
                 break
 
@@ -71,28 +68,86 @@ class StepperMotor:
         self.disable()
         return steps_taken
 
-    def home(self, delay: float = 0.001):
+    def home(self, delay: float = 0.0001, timeout: float = 60.0):
         """Move towards min switch until triggered, then zero position"""
         if self.min_switch is None:
             print("No min switch configured, cannot home")
             return
 
         self.enable()
-        self.dir.value = False  # Move towards min
+        self.dir.value = True #TODO Switch back to true
+        start = time.time()
 
-        while not self.is_at_min():
+        while True:
+            if time.time() - start > timeout:
+                self.disable()
+                return False
+            if not self.dir.value and self.is_at_max():
+                break
+            if self.dir.value and self.is_at_min():
+                break
+
             self.step.on()
             time.sleep(delay)
             self.step.off()
             time.sleep(delay)
 
         self.disable()
+        return True
+
 
     def close(self):
         self.disable()
         self.step.close()
         self.dir.close()
         self.en.close()
+
+
+class ServoMotor:
+    """
+    Controls a standard hobby servo via PWM.
+    Most servos expect a 50Hz signal with pulse widths between 1ms (0 deg) and 2ms (180 deg).
+
+    min_pulse_width and max_pulse_width are in seconds.
+    """
+    def __init__(
+        self,
+        pin: int,
+        min_angle: float = 0.0,
+        max_angle: float = 180.0,
+        min_pulse_width=0.0005,  # 0.5ms
+        max_pulse_width=0.0025,
+        frame_width: float = 0.02         # 50Hz
+    ):
+        self.min_angle = min_angle
+        self.max_angle = max_angle
+        self.min_pulse_width = min_pulse_width
+        self.max_pulse_width = max_pulse_width
+        self.frame_width = frame_width
+        self._current_angle = None
+
+        # PWMOutputDevice expects a value between 0 and 1
+        # frequency = 1 / frame_width (50Hz default)
+        self.pwm = PWMOutputDevice(pin, frequency=round(1 / frame_width))
+
+    def _angle_to_duty(self, angle: float) -> float:
+        """Converts an angle to a PWM duty cycle between 0 and 1"""
+        angle = max(self.min_angle, min(self.max_angle, angle))
+        pulse = self.min_pulse_width + (angle - self.min_angle) / \
+                (self.max_angle - self.min_angle) * \
+                (self.max_pulse_width - self.min_pulse_width)
+        return pulse / self.frame_width
+
+    def set_angle(self, angle: float):
+        """Move servo to specified angle"""
+        self.pwm.value = self._angle_to_duty(angle)
+        self._current_angle = angle
+
+    def get_angle(self) -> float:
+        return self._current_angle
+
+    def close(self):
+        self.pwm.close()
 
 class ChessGantry:
     def __init__(self):
@@ -103,12 +158,11 @@ class ChessGantry:
         self._gy = 0
         self._EM_ON = False
         
-        self.x_min = Button(X_MIN_PIN, pull_up=True)
-        self.x_max = Button(X_MAX_PIN, pull_up=True)
-        self.y_min = Button(Y_MIN_PIN, pull_up=True)
-        self.y_max = Button(Y_MAX_PIN, pull_up=True)
+        self.x_min = Button(X_MIN_PIN, pull_up=True, hold_time = .001)
+        self.x_max = Button(X_MAX_PIN, pull_up=True, hold_time = .05)
+        self.y_min = Button(Y_MIN_PIN, pull_up=True, hold_time = .05)
+        self.y_max = Button(Y_MAX_PIN, pull_up=True, hold_time = .05)
 
-        # Pass switches to motors
         self.x_motor = StepperMotor(
             X_STEP_PIN, X_DIR_PIN, X_EN_PIN,
             min_switch=self.x_min,
@@ -121,6 +175,7 @@ class ChessGantry:
         )
 
         self.em = OutputDevice(EM_PIN)
+        self.z_servo = ServoMotor(SERVO_PIN)  # Add SERVO_PIN to config.py
 
     def magnet_on(self):
         self.em.on()
@@ -131,22 +186,32 @@ class ChessGantry:
     def test_magnet(self):
         self.magnet_on()
         time.sleep(20)
-        self.magnet_off()
+        self.magnet_off
+
+    def raise_z(self):
+        """Raise the Z axis to the up position"""
+        self.z_servo.set_angle(SERVO_UP_ANGLE)    
+
+    def lower_z(self):
+        """Lower the Z axis to the down position"""
+        self.z_servo.set_angle(SERVO_DOWN_ANGLE)  
+
+    def set_z_angle(self, angle: float):
+        """Set Z axis to an arbitrary angle"""
+        self.z_servo.set_angle(angle)
 
     #True is negative x, False is positive x
     def move_x(self, steps: int, direction: bool, delay: float = 0.001) -> float:
         steps_taken = self.x_motor.move(steps, direction, delay)
         dir = (1 if direction == True else -1)
-        self._gx += self.step_to_mm(steps_taken) * dir
-
+        self._gx += (self.step_to_mm(steps_taken) * dir)
         return steps_taken
 
-    #Fase is negative y, True is positive y
-    def move_y(self, steps: int, direction: bool, delay: float = 0.001) -> float :
+    #False is negative y, True is positive y
+    def move_y(self, steps: int, direction: bool, delay: float = 0.001) -> float:
         steps_taken = self.y_motor.move(steps, direction, delay)
         dir = (-1 if direction == True else 1)
-        self._gy += self.step_to_mm(steps_taken) * dir
-
+        self._gy += (self.step_to_mm(steps_taken) * dir)
         return steps_taken
 
     def move_one_square_x(self, direction: bool, delay: float = 0.001):
@@ -156,53 +221,52 @@ class ChessGantry:
         self.move_y(self.mm_to_step(self.square_size_mm), direction, delay)
 
     def mm_to_step(self, distance_mm):
-        return distance_mm/self.mm_per_step
+        return round(distance_mm / self.mm_per_step)
 
     def step_to_mm(self, steps):
         return steps * self.mm_per_step
 
     def home_all(self, delay: float = 0.001):
-        """Home both axes """
+        """Home both axes"""
         print("Homing X...")
         self.x_motor.home(delay)
-        self._gx = -2
+        self._gx = MIN_COL * SQUARE_SIZE_MM
         print("Homing Y...")
         self.y_motor.home(delay)
-        self._gy = 1
+        self._gy =  MIN_ROW * SQUARE_SIZE_MM
         print("All axes homed")
 
     def close(self):
         self.x_motor.close()
         self.y_motor.close()
         self.em.close()
+        self.z_servo.close()
+        self.x_min.close()
+        self.x_max.close()
+        self.y_min.close()
+        self.y_max.close()
+        Device.pin_factory.close()
 
 
 def main():
     gantry = ChessGantry()
 
     try:
-        # print("Magnet on")
-        # gantry.test_magnet()
-        # print("Magnet off")
-
-        # print("Testing X motor...")
-        # gantry.move_x(3200, direction=False, delay=0.00009)
-        # time.sleep(1)
-        # gantry.move_x(3200, direction=True, delay=0.00009)
-        # time.sleep(1)
-
-        gantry.magnet_on()
-        time.sleep(2)
+        gantry.raise_z()
+        time.sleep(3)
+        print("Testing X motor...")
+        gantry.move_x(100000, direction=True,  delay=GANTRY_SPEED)
+        time.sleep(1)
         print("Testing Y motor...")
-        gantry.move_y(4800, direction=False, delay=0.00009)
+        gantry.move_y(100000, direction=True, delay=GANTRY_SPEED)
         time.sleep(1)
-        gantry.magnet_off()
-        time.sleep(5)
-        gantry.move_y(4800, direction=True, delay=0.0000000001)
+        gantry.move_x(10000, direction=False, delay=GANTRY_SPEED)
+        print("Testing X motor...")
         time.sleep(1)
-
-        # print("Testing XY move...")
-        # gantry.move_xy(3200, True, 3200, True, delay=0.00009)
+        gantry.move_y(100000, direction=False, delay=GANTRY_SPEED)
+        print("Testing Y motor...")
+        time.sleep(1)
+        # gantry.lower_z()
 
     finally:
         gantry.close()
@@ -211,6 +275,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-

@@ -13,6 +13,7 @@ import chess
 import random
 import chess.engine
 from chess_common_py.config import SQUARE_SIZE_MM as SQUARE_SIZE
+from chess_common_py.config import MIN_COL, MAX_COL, MIN_ROW, MAX_ROW
 
 import chess
 
@@ -62,36 +63,39 @@ class BoardState(Node):
         self.using_ros = use_ros
 
         #Pieces to be inserted will use chess.(PieceType). Ex: chess.ROOK, chess.PAWN
-        for col in [-3, -2]:
-            for row in range(1, 9):
-                square = f"{col},{row}"
+        for col in [MIN_COL, MIN_COL + 1]:
+            for row in range(MIN_ROW, MAX_ROW + 1):
+                square = f"{col}{row}"
                 self.black_graveyard[square] = None
 
-        for col in [9, 10]:
-            for row in range(1, 9):
-                square = f"{col},{row}"
+        for col in [MAX_COL - 1, MAX_COL]:
+            for row in range(MIN_ROW, MAX_ROW + 1):
+                square = f"{col}{row}"
                 self.white_graveyard[square] = None
 
     def square_to_coords(self, sq: str) -> list[int]:
+        """Takes in square as a string Ex: square_to_coords('a3'), square_to_coords('-23')"""
         coords = []
-        sq = sq.split(",")
 
         if sq[0].isalpha():
-            coords.append(ord(sq[0]) - ord('a') * SQUARE_SIZE)  
-            coords.append(int(sq[1]) * SQUARE_SIZE)              
+            coords.append((ord(sq[0]) - ord('a')) * SQUARE_SIZE)
+            coords.append(int(sq[-1]) * SQUARE_SIZE)              
         else:
             coords.append(int(sq[0]) * SQUARE_SIZE)
-            coords.append(int(sq[1]) * SQUARE_SIZE)
+            coords.append(int(sq[-1]) * SQUARE_SIZE)
 
         return coords
 
     def coords_to_square(self, x: int, y: int) -> str:
+        """Takes in euclidean coordinates and returns the square those coords fall in"""
         square = ""
-        if x >= 10 or x <= -2:
-            square = f"{x/SQUARE_SIZE},{y/SQUARE_SIZE}"          
+        black_graveyard = ((MAX_COL - 1) * SQUARE_SIZE) - SQUARE_SIZE/2
+        white_graveyard = ((MIN_COL + 1) * SQUARE_SIZE) - SQUARE_SIZE/2
+
+        if x >= black_graveyard or x <= white_graveyard:
+            square = f"{x/SQUARE_SIZE}{y/SQUARE_SIZE}"          
         else:
-            square = chr(round(x) + ord('a')) + "," + str(round(y/SQUARE_SIZE))  #TODO Might have to round cuz of float accuracy loss
-        return square
+            return chr(round(x/SQUARE_SIZE) + ord('a'))  + str(round(y/SQUARE_SIZE))  #TODO Might have to round cuz of float accuracy loss
 
     def gen_random_move(self)->str:
         return random.choice(list(self.board.legal_moves)).uci()
@@ -132,9 +136,10 @@ class BoardState(Node):
 
         return response
 
-    #Expected to be in chess library enum format(Ex: the value of chess.A3)
     def get_square_piece(self, chess_square):
-        return self.board.piece_at(chess_square) 
+        if isinstance(chess_square, str):
+            chess_square = chess.parse_square(chess_square)
+        return self.board.piece_at(chess_square)
 
     def _get_square_piece_callback(self, request, response):
         self.get_logger().info("Received Request to get square piece callback")
