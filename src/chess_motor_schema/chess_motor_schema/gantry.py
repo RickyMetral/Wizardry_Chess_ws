@@ -51,10 +51,10 @@ class StepperMotor:
         steps_taken = 0
 
         for _ in range(steps):
-            if not direction and self.is_at_max():
+            if not direction and self.is_at_max() and CHECK_BOUNDARIES:
                 print("Max limit switch triggered, stopping")
                 break
-            if direction and self.is_at_min():
+            if direction and self.is_at_min() and CHECK_BOUNDARIES:
                 print("Min limit switch triggered, stopping")
                 break
 
@@ -158,10 +158,10 @@ class ChessGantry:
         self._gy = 0
         self._EM_ON = False
         
-        self.x_min = Button(X_MIN_PIN, pull_up=True, hold_time = .001)
-        self.x_max = Button(X_MAX_PIN, pull_up=True, hold_time = .05)
-        self.y_min = Button(Y_MIN_PIN, pull_up=True, hold_time = .05)
-        self.y_max = Button(Y_MAX_PIN, pull_up=True, hold_time = .05)
+        self.x_min = Button(X_MIN_PIN, pull_up=True, hold_time = .1)
+        self.x_max = Button(X_MAX_PIN, pull_up=True, hold_time = .1)
+        self.y_min = Button(Y_MIN_PIN, pull_up=True, hold_time = .1)
+        self.y_max = Button(Y_MAX_PIN, pull_up=True, hold_time = .1)
 
         self.x_motor = StepperMotor(
             X_STEP_PIN, X_DIR_PIN, X_EN_PIN,
@@ -201,23 +201,23 @@ class ChessGantry:
         self.z_servo.set_angle(angle)
 
     #True is negative x, False is positive x
-    def move_x(self, steps: int, direction: bool, delay: float = 0.001) -> float:
+    def move_x(self, steps: int, direction: bool, delay: float = GANTRY_SPEED) -> float:
         steps_taken = self.x_motor.move(steps, direction, delay)
         dir = (1 if direction == True else -1)
         self._gx += (self.step_to_mm(steps_taken) * dir)
         return steps_taken
 
     #False is negative y, True is positive y
-    def move_y(self, steps: int, direction: bool, delay: float = 0.001) -> float:
+    def move_y(self, steps: int, direction: bool, delay: float = GANTRY_SPEED) -> float:
         steps_taken = self.y_motor.move(steps, direction, delay)
         dir = (-1 if direction == True else 1)
         self._gy += (self.step_to_mm(steps_taken) * dir)
         return steps_taken
 
-    def move_one_square_x(self, direction: bool, delay: float = 0.001):
+    def move_one_square_x(self, direction: bool, delay: float = GANTRY_SPEED):
         self.move_x(self.mm_to_step(self.square_size_mm), direction, delay)
 
-    def move_one_square_y(self, direction: bool, delay: float = 0.001):
+    def move_one_square_y(self, direction: bool, delay: float = GANTRY_SPEED):
         self.move_y(self.mm_to_step(self.square_size_mm), direction, delay)
 
     def mm_to_step(self, distance_mm):
@@ -252,21 +252,24 @@ def main():
     gantry = ChessGantry()
 
     try:
+
         gantry.raise_z()
-        time.sleep(3)
-        print("Testing X motor...")
-        gantry.move_x(100000, direction=True,  delay=GANTRY_SPEED)
         time.sleep(1)
-        print("Testing Y motor...")
-        gantry.move_y(100000, direction=True, delay=GANTRY_SPEED)
-        time.sleep(1)
-        gantry.move_x(10000, direction=False, delay=GANTRY_SPEED)
-        print("Testing X motor...")
-        time.sleep(1)
-        gantry.move_y(100000, direction=False, delay=GANTRY_SPEED)
-        print("Testing Y motor...")
-        time.sleep(1)
+        # print("Testing X motor...")
+        # step_size = gantry.mm_to_step(SQUARE_SIZE_MM)
+        # gantry.move_x(step_size, direction=True,  delay=GANTRY_SPEED)
+        # time.sleep(3)
+        # print("Testing Y motor...")
+        # gantry.move_y(step_size, direction=True, delay=GANTRY_SPEED)
+        # time.sleep(3)
+        # gantry.move_x(step_size, direction=False, delay=GANTRY_SPEED)
+        # print("Testing X motor...")
+        # time.sleep(3)
+        # gantry.move_y(step_size, direction=False, delay=GANTRY_SPEED)
+        # print("Testing Y motor...")
+        # time.sleep(1)
         # gantry.lower_z()
+        # time.sleep(1)
 
     finally:
         gantry.close()

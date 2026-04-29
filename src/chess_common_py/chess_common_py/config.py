@@ -12,10 +12,10 @@ LICHESS_TOKEN = os.getenv("LICHESS_TOKEN")
 VOSK_PATH = "/home/ws/src/Wizardry_Chess_ws/vosk-model-small-en-us"
 
 #------MOTOR MEASUREMENTS---------
-GANTRY_SPEED = 0.0001
+GANTRY_SPEED = 0.00001
 BOARD_Z = 0
 SIMULATE = False
-SQUARE_SIZE_MM = 60      
+SQUARE_SIZE_MM = 73.025     
 MICROSTEP = 8
 REV_STEPS = 200 * MICROSTEP
 BELT_PITCH_MM = 2
@@ -38,7 +38,7 @@ Y_EN_PIN = 22
 
 SERVO_PIN = 2
 SERVO_DOWN_ANGLE = 45
-SERVO_UP_ANGLE = 155
+SERVO_UP_ANGLE = 165
 
 
 EM_PIN = 24
@@ -50,3 +50,6 @@ Y_MIN_PIN  = 16    # Y axis minimum (home position)
 Y_MAX_PIN  = 26    # Y axis maximum
 
 VOICE_ACTIVATION_PIN = 23
+
+#--------Config on whether or not to check limit switches--------
+CHECK_BOUNDARIES = True

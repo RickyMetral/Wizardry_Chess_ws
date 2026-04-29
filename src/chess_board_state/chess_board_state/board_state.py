@@ -94,6 +94,7 @@ class BoardState(Node):
 
         if x >= black_graveyard or x <= white_graveyard:
             square = f"{x/SQUARE_SIZE}{y/SQUARE_SIZE}"          
+            return square
         else:
             return chr(round(x/SQUARE_SIZE) + ord('a'))  + str(round(y/SQUARE_SIZE))  #TODO Might have to round cuz of float accuracy loss
 

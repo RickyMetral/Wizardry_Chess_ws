@@ -10,7 +10,7 @@ from chess_interfaces.srv import GetSquarePiece
 from chess_motor_schema.gantry import ChessGantry
 from chess_board_state.board_state import BoardState
 from chess_common_py.config import SQUARE_SIZE_MM as SQUARE_SIZE
-from chess_common_py.config import MIN_COL, MAX_COL, MIN_ROW, MAX_ROW
+from chess_common_py.config import MIN_COL, MAX_COL, MIN_ROW, MAX_ROW, CHECK_BOUNDARIES, GANTRY_SPEED
  
 
 class ChessNavNode(Node):
@@ -19,7 +19,7 @@ class ChessNavNode(Node):
     def __init__(self):
         super().__init__("chess_nav_node")
         self.gantry = ChessGantry()
-        self.gantry.home_all()
+        self.gantry.home_all(delay = GANTRY_SPEED)
         self.move_sub = self.create_subscription(
             String, "player_move", self.on_player_move, 10
         )
@@ -45,13 +45,11 @@ class ChessNavNode(Node):
             self.get_logger().warn(f"Bad UCI received: {uci}")
         
         from_square = chess.square_name(move.from_square)
-        to_square = chess.square_name(move.to_square)
+        end_square = chess.square_name(move.to_square)
 
         from_x, from_y = self.board.square_to_coords(from_square)
-        to_x, to_y = self.board.square_to_coords(to_square)
 
-
-        if self.is_occupied_square(to_square):
+        if self.is_occupied_square(end_square):
             captured_color = self._get_captured_piece_color(move)
             self.get_logger().info("Handling Captured Piece")
             self._handle_captured_piece(self._get_captured_piece_type(move), captured_color)
@@ -59,25 +57,32 @@ class ChessNavNode(Node):
         self.get_logger().info(f"Moving piece from coordinates {from_x}, {from_y}")
         self.get_logger().info(f"Moving piece to coordinates {to_x}, {to_y}")
         self.get_logger().info(f"Moving piece from square {from_square}")
-        self.get_logger().info(f"Moving piece to square {to_square}")
+        self.get_logger().info(f"Moving piece to square {end_square}")
         self.board.update_board_state(msg)
-        self._move_piece(from_x, from_y, to_x, to_y)
+        self._move_piece(from_x, from_y, to_x, to_y, from_square, end_square)
 
-    def _move_piece(self, from_x: float, from_y: float, to_x, to_y) -> bool:
+    def _move_piece(self, from_x: float, from_y: float, start_square: str, end_square: str) -> bool:
         #Use move to xy, then turn EM on and use navigate to xy, then turn EM off to move a piece
-        if not self._move_to_xy(from_x, from_y):
+        if not self._move_to_xy(from_x, from_y) and CHECK_BOUNDARIES:
             self.get_logger().info(f"Hit boundary moving to ({from_x}, {from_y})")
             return False
+        
+        if not CHECK_BOUNDARIES:
+            self._move_to_xy(from_x, from_y)
+        
 
         self.gantry.magnet_on()
-        self._navigate_to_xy(to_x, to_y)
+        self._navigate_to_xy(start_square, end_square)
         self.gantry.magnet_off()
 
         return True
 
-    def _navigate_to_xy(self, x: float, y: float) -> bool:
-        start_square = self.board.coords_to_square(self.gantry._gx, self.gantry._gy)
-        end_square = self.board.coords_to_square(x, y)
+    def _navigate_to_xy(self, start_square: str, end_square: str) -> bool:
+        """
+        Takes in destination x and y, the square the piece we are dragging started on, 
+        and the destination square for that piece. 
+        """
+        self.get_logger().info(f"Start and end square: {start_square}, {end_square}")
         waypoints = self._bfs_path(start_square, end_square)
 
         if waypoints == None:
@@ -90,17 +95,17 @@ class ChessNavNode(Node):
         self.get_logger().info(f"Finished navigating to square: {end_square}")
         return True
 
-    def _bfs_path(self, from_square: str, to_square: str):
-        """ BFS on the 12x8 grid. Returns list of (col, row) waypoints excluding start.
+    def _bfs_path(self, from_square: str, end_square: str):
+        """ BFS on the grid. Returns list of (col, row) waypoints excluding start.
         Treats occupied squares as obstacles (except the destination).
         """
 
         from_x, from_y = self.board.square_to_coords(from_square)
-        to_x, to_y =    self.board.square_to_coords(to_square) 
+        to_x, to_y =    self.board.square_to_coords(end_square) 
         half = SQUARE_SIZE/2
         from_x, from_y = self.board.square_to_coords(from_square)
 
-        if from_square == to_square:
+        if from_square == end_square:
             return []
 
         occupied = self._get_occupied_squares()
@@ -117,7 +122,8 @@ class ChessNavNode(Node):
             (from_x - half, from_y + half),
             (from_x + half, from_y + half),
         ]
-        self.get_logger().info(f"Searching for path from {from_square} to {to_square}")
+
+        self.get_logger().info(f"Searching for path from {from_square} to {end_square}")
         for start_corner in start_corners:
             if not in_bounds(*start_corner):
                 continue
@@ -138,7 +144,7 @@ class ChessNavNode(Node):
                         continue
 
                     # Don't allow passing through occupied squares or the destination
-                    if cur_sq in occupied and cur_sq != to_square:
+                    if cur_sq in occupied and cur_sq != end_square:
                         continue
 
                     new_path = path + [(nc, nr)]
@@ -157,11 +163,11 @@ class ChessNavNode(Node):
         steps_x = self.gantry.mm_to_step(abs(dist_x))
         steps_y = self.gantry.mm_to_step(abs(dist_y))
 
-        if steps_x != self.gantry.move_x(steps_x, True if dist_x < 0 else False):
+        if steps_x != self.gantry.move_x(steps_x, False if dist_x < 0 else True) and CHECK_BOUNDARIES:
             self.get_logger().info("Hit boundary in x")
             return False
 
-        if steps_y != self.gantry.move_y(steps_y, False if dist_y < 0 else True):
+        if steps_y != self.gantry.move_y(steps_y, False  if dist_y < 0 else True) and CHECK_BOUNDARIES:
             self.get_logger().info("Hit boundary in y")
             return False
 
