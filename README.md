@@ -105,12 +105,10 @@ OR to download the fully working image:
 ## Running the Project
 
 **Start the Docker Container**
-  - To start the container use the following docs to run the container:
+  - To start the container use the following docs:
+    [Getting Started with ROS2 in Docker](https://docs.google.com/document/d/18rpQyCBjzm2WsNtz2WmJEUn3cp52JED8hbf0TEfT4p4/edit?usp=sharing)
 
-  [Getting Started with ROS2 in Docker](https://docs.google.com/document/d/18rpQyCBjzm2WsNtz2WmJEUn3cp52JED8hbf0TEfT4p4/edit?usp=sharing)
-
-- After building and sourcing with colcon use the following comamnds to run the project:
-  
+  - After building and sourcing with colcon use the following comamnds to run the project:
 **Voice-controlled (STT) mode:**
 ```bash
 ros2 launch chess_common_py stt_chess.launch.py
