@@ -31,16 +31,27 @@ Two launch modes are supported:
 - [ ] A Lichess account and API token (for Lichess mode)
 - [ ] Vosk speech model downloaded (for STT mode)
 
-### Environment Variables
+## Environment Variables
 
  Run the following command to export necessary environment variables
+ 1. **Download Stockfish**
+    ```bash
+    #Download stockfish https://stockfishchess.org/download/
+    #Unzip downloaded file
+    #Output path to stockfish
+    which stockfish
+    ```
+    
+  2. **Get Lichess API Token**
+     - Download your token at [Lichess Token Generator](https://lichess.org/account/oauth/token/create)
+       
+  3. **Add Environment Variables**
+     ```bash
+     echo "export STOCKFISH_PATH=/path/to/stockfish" > ~/.bashrc
+     echo "export LICHESS_TOKEN=your_lichess_api_token_here" > ~/.bashrc
+     ```
 
-```bash
-export STOCKFISH_PATH=/path/to/stockfish
-export LICHESS_TOKEN=your_lichess_api_token_here
-```
-
-### Installation
+## Installation
 
 To set up the docker environment manually do the following:
 
@@ -51,7 +62,7 @@ To set up the docker environment manually do the following:
 
 2. **Clone the repository**
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/RickyMetral/Wizardry_Chess_ws.git
    cd Wizardry_Chess_ws
    ```
 
@@ -86,18 +97,20 @@ To set up the docker environment manually do the following:
    source install/setup.bash
    ```
 
-To download the fully working image:
+OR to download the fully working image:
 
  1. **Download the image with all dependencies installed**
     **Write instructions to pull from docker hub here**
 
-### Running the Project
+## Running the Project
 
 **Start the Docker Container**
   - To start the container use the following docs to run the container:
 
   [Getting Started with ROS2 in Docker](https://docs.google.com/document/d/18rpQyCBjzm2WsNtz2WmJEUn3cp52JED8hbf0TEfT4p4/edit?usp=sharing)
 
+- After building and sourcing with colcon use the following comamnds to run the project:
+  
 **Voice-controlled (STT) mode:**
 ```bash
 ros2 launch chess_common_py stt_chess.launch.py
@@ -126,7 +139,7 @@ All tunable parameters live in `src/chess_common_py/chess_common_py/config.py`, 
 
 ## Links
 
--   [Getting Started with ROS2 in Docker](https://docs.google.com/document/d/18rpQyCBjzm2WsNtz2WmJEUn3cp52JED8hbf0TEfT4p4/edit?usp=sharing)
+- [Getting Started with ROS2 in Docker](https://docs.google.com/document/d/18rpQyCBjzm2WsNtz2WmJEUn3cp52JED8hbf0TEfT4p4/edit?usp=sharing)
 - [Fully Detailed Report](docs/Wizardry_Chess_Final_Report.pdf)
 - [Demo Video](https://drive.google.com/file/d/1FdIVNJVsC7M01BdKD7TQzL181ZxDv5et/view?usp=sharing)
 
